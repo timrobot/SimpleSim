@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Robot Sim</title>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.161.0/build/three.module.js",
+          "three/examples/jsm/": "https://unpkg.com/three@0.161.0/examples/jsm/",
+          "three/addons/": "https://unpkg.com/three@0.161.0/examples/jsm/"
+        }
+      }
+    </script>
+    <script src="https://unpkg.com/ammo.js@0.0.10/ammo.js"></script>
+    <script type="module" src="/static/js/physics.js"></script>
+    <script type="module" src="/static/js/lan.js"></script>
+    <!-- <script type="text/javascript" src="/static/js/ammo.js"></script> -->
+
+
+    <style type="text/css">
+      * {
+        margin: 0;
+        padding: 0;
+      }
+    </style>
+
+
+<script id="post-vert" type="x-shader/x-vertex">
+  varying vec2 vUv;
+
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+</script>
+<script id="post-frag" type="x-shader/x-fragment">
+  #include <packing>
+
+  varying vec2 vUv;
+  uniform sampler2D tDiffuse;
+  uniform sampler2D tDepth;
+  uniform float cameraNear;
+  uniform float cameraFar;
+
+
+  float readDepth( sampler2D depthSampler, vec2 coord ) {
+    float fragCoordZ = texture2D( depthSampler, coord ).x;
+    float viewZ = perspectiveDepthToViewZ( fragCoordZ, cameraNear, cameraFar );
+    return viewZToOrthographicDepth( viewZ, cameraNear, cameraFar );
+  }
+
+  void main() {
+    //vec3 diffuse = texture2D( tDiffuse, vUv ).rgb;
+    float depth = readDepth( tDepth, vUv );
+    float mpost250;
+    float mm250 = modf(depth * 256.0f, mpost250);
+
+    gl_FragColor.rgb = vec3( mm250, mpost250 / 256.0f, 0 );
+    //gl_FragColor.a = 1.0;
+  }
+</script>
+
+  </head>
+  <body>
+    <script type="module">
+      import * as THREE from 'three';
+      import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+      import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js';
+      import AmmoPhysics from '/static/js/physics.js';
+      import WSConnection from '/static/js/lan.js';
+
+      // Create a scene + physics
+      const scene = new THREE.Scene();
+      const physx = new AmmoPhysics(new THREE.Clock(), { angularDamping: 0.99 });
+      const colGroup = {
+        env: 1,
+        robot: 2,
+        effector: 4,
+        object: 8
+      };
+      const everyCollideGroup = colGroup.env | colGroup.robot | colGroup.effector | colGroup.object;
+
+      // Create a camera
+      const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 50);
+      camera.position.set(0, 3, 5);
+      camera.lookAt(0, 0, 0);
+
+      // Create a renderer
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.shadowMap.enabled = true;
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.setClearColor(0x80c0e0);
+      document.body.appendChild(renderer.domElement);
+
+      // Setup lights
+      const dirLight = new THREE.DirectionalLight();
+      dirLight.position.set(50, 50, 50);
+      // optional shadow stuff
+      dirLight.castShadow = true;
+      dirLight.shadow.camera.left = -100;
+      dirLight.shadow.camera.right = 100;
+      dirLight.shadow.camera.bottom = -100;
+      dirLight.shadow.camera.top = 100;
+      dirLight.shadow.camera.near = 0.1;
+      dirLight.shadow.camera.far = 100;
+      scene.add(dirLight);
+
+      const amLight = new THREE.AmbientLight();
+      amLight.intensity = 0.1;
+      scene.add(amLight);
+
+      // Create controller for viewing
+      const controller = new OrbitControls(camera, renderer.domElement);
+
+      // Create websocket connection
+      const connection = new WSConnection(9999, 640, 360, 0.1, 60);
+      
+      // Create a ground plane in Three.js
+      const in2m = (x) => x * 0.0254;
+      const groundGeometry = new THREE.BoxGeometry(50, 1, 50);
+      const groundMaterial = new THREE.MeshLambertMaterial({color: 0xdacfa3});
+      const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+      ground.position.set(0, -0.5, 0);
+      ground.castShadow = true;
+      ground.receiveShadow = true;
+      scene.add(ground);
+      physx.add(ground, {collideGroup: colGroup.env, collideWith: everyCollideGroup});
+
+      // Create a wall in Three.js
+      const wallGeometry = new THREE.BoxGeometry(4, in2m(12), in2m(2));
+      const wallMaterial = new THREE.MeshLambertMaterial({color: 0xff00ff});
+      const walls = [];
+      for (let i = 0; i < 4; i++) {
+        walls.push(new THREE.Mesh(wallGeometry, wallMaterial));
+      }
+      walls[0].position.set( 0, in2m(6), 2.5);
+      walls[1].position.set( 2.5, in2m(6), 0);
+      walls[1].rotateY(Math.PI / 2);
+      walls[2].position.set( 0, in2m(6),-2.5);
+      walls[3].position.set(-2.5, in2m(6), 0);
+      walls[3].rotateY(Math.PI / 2);
+      const wall2Geometry = new THREE.BoxGeometry(1, in2m(12), in2m(2));
+      for (let i = 0; i < 4; i++) {
+        walls.push(new THREE.Mesh(wall2Geometry, wallMaterial));
+      }
+      const wallCorner = 2.25;
+      walls[4].position.set(-wallCorner, in2m(6), wallCorner);
+      walls[4].rotateY(-Math.PI / 4);
+      walls[5].position.set( wallCorner, in2m(6), wallCorner);
+      walls[5].rotateY( Math.PI / 4);
+      walls[6].position.set( wallCorner, in2m(6),-wallCorner);
+      walls[6].rotateY(-Math.PI / 4);
+      walls[7].position.set(-wallCorner, in2m(6),-wallCorner);
+      walls[7].rotateY( Math.PI / 4);
+      for (const wall of walls) {
+        wall.castShadow = true;
+        wall.receiveShadow = true;
+        scene.add(wall);
+        physx.add(wall, {collideGroup: colGroup.env, collideWith: everyCollideGroup});
+      }
+
+      // Create the axes for x, z
+      const poleGeometry = new THREE.CylinderGeometry(0.05, 0.05, 3);
+      const xpoleMaterial = new THREE.MeshLambertMaterial({color: 0xff0000});
+      const zpoleMaterial = new THREE.MeshLambertMaterial({color: 0x0000ff});
+      const nxpoleMaterial = new THREE.MeshLambertMaterial({color: 0x00ffff});
+      const nzpoleMaterial = new THREE.MeshLambertMaterial({color: 0xffff00});
+      const xpole = new THREE.Mesh(poleGeometry, xpoleMaterial);
+      const zpole = new THREE.Mesh(poleGeometry, zpoleMaterial);
+      const nxpole = new THREE.Mesh(poleGeometry, nxpoleMaterial);
+      const nzpole = new THREE.Mesh(poleGeometry, nzpoleMaterial);
+
+      xpole.position.set(8, 0, 0);
+      zpole.position.set(0, 0, 8);
+      nxpole.position.set(-8, 0, 0);
+      nzpole.position.set(0, 0, -8);
+
+      scene.add(xpole);
+      physx.add(xpole, {collideGroup: colGroup.env, collideWith: everyCollideGroup});
+      scene.add(zpole);
+      physx.add(zpole, {collideGroup: colGroup.env, collideWith: everyCollideGroup});
+      scene.add(nxpole);
+      physx.add(nxpole, {collideGroup: colGroup.env, collideWith: everyCollideGroup});
+      scene.add(nzpole);
+      physx.add(nzpole, {collideGroup: colGroup.env, collideWith: everyCollideGroup});
+
+
+      //// ROBOT
+      const chassisMass = 5.0;
+      const chassisWidth = in2m(10);
+      const chassisHeight = in2m(1);
+      const chassisLength = in2m(10);
+      
+      const metalMaterial = new THREE.MeshLambertMaterial({color: 0xc0c0c0});
+      const chassisGeometry = new THREE.BoxGeometry(
+        chassisWidth, chassisHeight, chassisLength);
+      const chassis = new THREE.Mesh(chassisGeometry, metalMaterial);
+      chassis.position.set(0, in2m(2.75), 0);
+      chassis.castShadow = true;
+      chassis.receiveShadow = true;
+      scene.add(chassis);
+
+      // let's add it to the physics world manually since there are alot of custom stuff
+      const transform = new Ammo.btTransform();
+      transform.setIdentity();
+      physx.p_.setValue(
+        chassis.position.x,
+        chassis.position.y + in2m(2.875),
+        chassis.position.z);
+      transform.setOrigin(physx.p_);
+      physx.q_.setValue(
+        chassis.quaternion.x,
+        chassis.quaternion.y,
+        chassis.quaternion.z,
+        chassis.quaternion.w);
+      transform.setRotation(physx.q_);
+      const motionState = new Ammo.btDefaultMotionState(transform);
+      const collisionShape = new Ammo.btBoxShape(new Ammo.btVector3(
+        chassisWidth / 2, in2m(5.125), chassisLength / 2));
+      collisionShape.setMargin(0.05);
+      physx.p_.setValue(0, 0, 0); // local inertia
+      collisionShape.calculateLocalInertia(chassisMass, physx.p_);
+      const rigidbodyInfo = new Ammo.btRigidBodyConstructionInfo(
+        chassisMass, motionState, collisionShape, physx.p_);
+      const chassisRB = new Ammo.btRigidBody(rigidbodyInfo);
+      chassisRB.setActivationState(4); // shutoff deactivation
+      physx.world.addRigidBody(chassisRB, colGroup.robot, colGroup.env);
+      chassis.userData.rigidbody = chassisRB;
+      chassis.userData.options = {
+        mass: chassisMass,
+        collideGroup: colGroup.robot,
+        collideWith: colGroup.env
+      };
+
+      const FRONT_LEFT = 0;
+      const FRONT_RIGHT = 1;
+      const BACK_LEFT = 2;
+      const BACK_RIGHT = 3;
+      const wheelAxisX = in2m(5);
+      const wheelAxisY = in2m(-.25);
+      const wheelAxisZ = in2m(4.25);
+      const wheelRadius = in2m(2);
+      const wheelWidth = in2m(0.88);
+
+      const wheelGeometry = new THREE.CylinderGeometry(wheelRadius, wheelRadius, wheelWidth);
+      const wheelMaterial = new THREE.MeshLambertMaterial({color: 0x00aa00});
+      const wheelMeshes = [];
+
+      for (let i = 0; i < 4; i++) {
+        const wheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
+        wheel.castShadow = true;
+        wheel.receiveShadow = true;
+        wheelMeshes.push(wheel);
+        wheel.rotateZ(Math.PI / 2);
+        scene.add(wheel);
+      }
+
+      wheelMeshes[FRONT_LEFT ].position.set(-wheelAxisX, wheelAxisY,-wheelAxisZ);
+      wheelMeshes[FRONT_RIGHT].position.set( wheelAxisX, wheelAxisY,-wheelAxisZ);
+      wheelMeshes[BACK_LEFT  ].position.set(-wheelAxisX, wheelAxisY, wheelAxisZ);
+      wheelMeshes[BACK_RIGHT ].position.set( wheelAxisX, wheelAxisY, wheelAxisZ);
+
+      for (const wheel of wheelMeshes) {
+        chassis.add(wheel);
+      }
+
+      const standGeometry = new THREE.BoxGeometry(in2m(3), in2m(7.5), in2m(1));
+      const stand = new THREE.Mesh(standGeometry, metalMaterial);
+      stand.castShadow = true;
+      stand.receiveShadow = true;
+      stand.position.set(0, in2m(4.25), in2m(4.5));
+      chassis.add(stand);
+
+      let leftAction = 0;
+      let rightAction = 0;
+
+      // add arm
+      const armGeometry = new THREE.BoxGeometry(in2m(1), in2m(0.5), in2m(12.5));
+      const arm1 = new THREE.Mesh(armGeometry, metalMaterial);
+      arm1.castShadow = true;
+      arm1.receiveShadow = true;
+      scene.add(arm1);
+      physx.add(arm1, {
+        mass: 0.05,
+        collideGroup: colGroup.robot,
+        collideWith: colGroup.env
+      });
+      const arm2 = new THREE.Mesh(armGeometry, metalMaterial);
+      arm2.castShadow = true;
+      arm2.receiveShadow = true;
+      scene.add(arm2);
+      physx.add(arm2, {
+        mass: 0.05,
+        collideGroup: colGroup.robot,
+        collideWith: colGroup.env
+      });
+
+      const clawBaseGeometry = new THREE.BoxGeometry(in2m(3), in2m(2.5), in2m(2));
+      const clawBase = new THREE.Mesh(clawBaseGeometry, metalMaterial);
+      clawBase.castShadow = true;
+      clawBase.receiveShadow = true;
+      scene.add(clawBase);
+      physx.add(clawBase, {
+        mass: 0.05,
+        collideGroup: colGroup.effector,
+        collideWith: colGroup.env | colGroup.object,
+        xyz: [0, -in2m(2.875), 0]
+      });
+
+      const chassis_arm1 = physx.hinge({
+        mesh: chassis,
+        xyz: [0, in2m(7.5 - 2.875), in2m(4.5)],
+        axis: [1, 0, 0]
+      }, {
+        mesh: arm1,
+        xyz: [0, 0, in2m(5.5)],
+        axis: [1, 0, 0]
+      });
+      const arm1_effector = physx.hinge({
+        mesh: arm1,
+        xyz: [0, 0, in2m(-5.5)],
+        axis: [1, 0, 0]
+      }, {
+        mesh: clawBase,
+        xyz: [0, in2m(1), in2m(.875)],
+        axis: [1, 0, 0]
+      });
+      const chassis_arm2 = physx.hinge({
+        mesh: chassis,
+        xyz: [0, in2m(5.5 - 2.875), in2m(4.5)],
+        axis: [1, 0, 0]
+      }, {
+        mesh: arm2,
+        xyz: [0, 0, in2m(5.5)],
+        axis: [1, 0, 0]
+      });
+      const arm2_effector = physx.hinge({
+        mesh: arm2,
+        xyz: [0, 0, in2m(-5.5)],
+        axis: [1, 0, 0]
+      }, {
+        mesh: clawBase,
+        xyz: [0, in2m(-1), in2m(.875)],
+        axis: [1, 0, 0]
+      });
+      chassis_arm1.enableAngularMotor(true, 0, 2);
+      let armAction = 0;
+
+      const robotCamera = new THREE.PerspectiveCamera(75, 640 / 360, 0.1, 50);
+      robotCamera.position.set(0, in2m(2.5), in2m(4.5));
+      robotCamera.lookAt(0, in2m(2.5), -1); // look forward
+      arm1.add(robotCamera);
+
+      // const loader = new ColladaLoader();
+      // const robot_url = '/static/models/Base.dae';
+      // loader.load(robot_url, (model) => {
+      // });
+
+      // load in a basic sphere as our "object"
+      const ballGeometry = new THREE.SphereGeometry(in2m(1.28));
+      const ballMaterial = new THREE.MeshLambertMaterial({color: 0x10ff00});
+      const ball = new THREE.Mesh(ballGeometry, ballMaterial);
+      ball.position.set(0, in2m(1.28), 0);
+      scene.add(ball);
+
+      //// Animation loop
+      const p = new THREE.Vector3(0, 0, 0);
+      const q = new THREE.Quaternion(0, 0, 0, 1);
+      const v = new THREE.Vector3(0, 0, 0);
+      const heading = new THREE.Euler();
+      const rpm = 100;
+      const omega = rpm * 2 * Math.PI / 60;
+      const meters_psec = omega * in2m(2);
+      const linearCoeff = meters_psec;
+      const angularCoeff = meters_psec / in2m(10);
+      function animate() {
+        // apply torque to the pendulum
+        const cmd = connection.getCmd();
+        if (cmd) {
+          if (cmd.api === "act") {
+            const action = cmd.action;
+            leftAction = action[0];
+            rightAction = -action[9];
+            armAction = action[1];
+          } else if (cmd.api === "reset") {
+            chassis.position.set(Math.random() * in2m(72) - in2m(36), in2m(2.75), Math.random() * in2m(72) - in2m(36));
+            physx.T_.setIdentity();
+            physx.p_.setValue(chassis.position.x, chassis.position.y + in2m(2.875), chassis.position.z);
+            physx.T_.setOrigin(physx.p_);
+            physx.q_.setValue(chassis.quaternion.x, chassis.quaternion.y, chassis.quaternion.z, chassis.quaternion.w);
+            physx.T_.setRotation(physx.q_);
+            physx.get(chassis).setWorldTransform(physx.T_);
+            physx.get(chassis).getMotionState().setWorldTransform(physx.T_);
+            physx.p_.setValue(0, 0, 0);
+            physx.get(chassis).setLinearVelocity(physx.p_);
+            physx.get(chassis).setAngularVelocity(physx.p_);
+
+            p.set(0, in2m(7.5), in2m(0));
+            p.applyQuaternion(chassis.quaternion);
+            p.add(chassis.position);
+            arm1.position.set(p.x, p.y, p.z);
+            p.set(0, in2m(5.5), in2m(0));
+            p.applyQuaternion(chassis.quaternion);
+            p.add(chassis.position);
+            arm2.position.set(p.x, p.y, p.z);
+            p.set(0, in2m(6.5), in2m(-5));
+            p.applyQuaternion(chassis.quaternion);
+            p.add(chassis.position);
+            clawBase.position.set(p.x, p.y, p.z);
+
+            ball.position.set(Math.random() * in2m(144) - in2m(72), in2m(1.28), Math.random() * in2m(144) - in2m(72));
+            console.log("Reset the world, new ball position:", ball.position);
+
+            physx.reset();
+          }
+        }
+
+        heading.setFromQuaternion(chassis.quaternion, 'YZX');
+        const distance = clawBase.position.distanceTo(ball.position);
+        const pq_theta = Math.atan2(clawBase.position.x - ball.position.x, clawBase.position.z - ball.position.z);
+        let dtheta = pq_theta - heading.y;
+        while (dtheta > Math.PI) dtheta -= 2 * Math.PI; 
+        while (dtheta < -Math.PI) dtheta += 2 * Math.PI;
+        const reward = 1 - distance - Math.abs(dtheta) / Math.PI;
+
+        connection.setObservationReward([
+          chassis.position.x,
+          -chassis.position.z,
+          heading.y,
+          arm1.rotation._x,
+          physx.get(arm1).getAngularVelocity().x(),
+          ball.position.x,
+          -ball.position.z,
+          clawBase.position.x - ball.position.x,
+          -(clawBase.position.z - ball.position.z),
+          clawBase.position.y - ball.position.y
+        ], reward);
+
+        physx.getTransform(chassis, p, q);
+        v.set(0, 0, linearCoeff * -(leftAction + rightAction) / 2);
+        v.applyQuaternion(q);
+        physx.p_.setValue(v.x, v.y, v.z);
+        physx.get(chassis).setLinearVelocity(physx.p_);
+        physx.p_.setValue(0, angularCoeff * (rightAction - leftAction), 0);
+        physx.get(chassis).setAngularVelocity(physx.p_);
+
+        const dt = physx.step();
+        physx.getTransform(chassis, p, q);
+        chassis.position.set(p.x, p.y - in2m(2.875), p.z);
+        chassis.quaternion.set(q.x, q.y, q.z, q.w);
+        chassis_arm1.enableAngularMotor(true, armAction, 2);
+
+        renderer.render(scene, camera);
+        connection.update(scene, robotCamera);
+      }
+      renderer.setAnimationLoop(animate);
+
+    </script>
+  </body>
+</html>

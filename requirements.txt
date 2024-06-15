@@ -1,0 +1,7 @@
+numpy
+customtkinter
+opencv-python
+Pillow
+aiohttp
+aiohttp_cors
+websockets

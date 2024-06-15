@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Robot Sim</title>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.161.0/build/three.module.js",
+          "three/examples/jsm/": "https://unpkg.com/three@0.161.0/examples/jsm/",
+          "three/addons/": "https://unpkg.com/three@0.161.0/examples/jsm/"
+        }
+      }
+    </script>
+    <script src="https://unpkg.com/ammo.js@0.0.10/ammo.js"></script>
+    <script type="module" src="/static/js/physics.js"></script>
+    <script type="module" src="/static/js/lan.js"></script>
+    <!-- <script type="text/javascript" src="/static/js/ammo.js"></script> -->
+
+
+    <style type="text/css">
+      * {
+        margin: 0;
+        padding: 0;
+      }
+    </style>
+
+
+<script id="post-vert" type="x-shader/x-vertex">
+  varying vec2 vUv;
+
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+</script>
+<script id="post-frag" type="x-shader/x-fragment">
+  #include <packing>
+
+  varying vec2 vUv;
+  uniform sampler2D tDiffuse;
+  uniform sampler2D tDepth;
+  uniform float cameraNear;
+  uniform float cameraFar;
+
+
+  float readDepth( sampler2D depthSampler, vec2 coord ) {
+    float fragCoordZ = texture2D( depthSampler, coord ).x;
+    float viewZ = perspectiveDepthToViewZ( fragCoordZ, cameraNear, cameraFar );
+    return viewZToOrthographicDepth( viewZ, cameraNear, cameraFar );
+  }
+
+  void main() {
+    //vec3 diffuse = texture2D( tDiffuse, vUv ).rgb;
+    float depth = readDepth( tDepth, vUv );
+    float mpost250;
+    float mm250 = modf(depth * 256.0f, mpost250);
+
+    gl_FragColor.rgb = vec3( mm250, mpost250 / 256.0f, 0 );
+    //gl_FragColor.a = 1.0;
+  }
+</script>
+
+  </head>
+  <body>
+    <script type="module">
+      import * as THREE from 'three';
+      import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+      import AmmoPhysics from '/static/js/physics.js';
+      import WSConnection from '/static/js/lan.js';
+
+      // Create a scene + physics
+      const scene = new THREE.Scene();
+      const physx = new AmmoPhysics(new THREE.Clock(), { angularDamping: 0.99 });
+
+      // Create a camera
+      const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 50);
+      camera.position.set(0, 3, -5);
+      camera.lookAt(0, 0, 0);
+
+      // Create a renderer
+      const renderer = new THREE.WebGLRenderer();
+      renderer.shadowMap.enabled = true;
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.setClearColor(0x80c0e0);
+      document.body.appendChild(renderer.domElement);
+
+      // Setup lights
+      const dirLight = new THREE.DirectionalLight();
+      dirLight.position.set(50, 50, 50);
+      // optional shadow stuff
+      dirLight.castShadow = true;
+      dirLight.shadow.camera.left = -100;
+      dirLight.shadow.camera.right = 100;
+      dirLight.shadow.camera.bottom = -100;
+      dirLight.shadow.camera.top = 100;
+      dirLight.shadow.camera.near = 0.1;
+      dirLight.shadow.camera.far = 100;
+      scene.add(dirLight);
+
+      const amLight = new THREE.AmbientLight();
+      amLight.intensity = 0.1;
+      scene.add(amLight);
+
+      // Create websocket connection
+      const connection = new WSConnection(9999, 640, 360, 0.1, 60);
+
+      // Create controller for viewing
+      const controller = new OrbitControls(camera, renderer.domElement);
+
+      // Create a ground plane in Three.js
+      const groundGeometry = new THREE.BoxGeometry(50, 1, 50);
+      const groundMaterial = new THREE.MeshLambertMaterial({color: 0xdacfa3});
+      const groundMesh = new THREE.Mesh(groundGeometry, groundMaterial);
+      groundMesh.position.set(0, -0.5, 0);
+      groundMesh.castShadow = true;
+      groundMesh.receiveShadow = true;
+      scene.add(groundMesh);
+      physx.add(groundMesh);
+
+      // Create a cube in Three.js
+      const cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
+      const cubeMaterial = new THREE.MeshLambertMaterial({color: 0x00a0ff});
+      const cubeMesh = new THREE.Mesh(cubeGeometry, cubeMaterial);
+      cubeMesh.position.set(-1, 0.5, 3);
+      cubeMesh.castShadow = true;
+      cubeMesh.receiveShadow = true;
+      scene.add(cubeMesh);
+      physx.add(cubeMesh, {mass:1.0});
+      const cubeMesh2 = new THREE.Mesh(cubeGeometry, cubeMaterial);
+      cubeMesh2.position.set(1, 0.5, 5);
+      cubeMesh2.castShadow = true;
+      cubeMesh2.receiveShadow = true;
+      scene.add(cubeMesh2);
+      physx.add(cubeMesh2, {mass:1.0});
+
+      // Now we can load the robot_model
+      const robotCamera = new THREE.PerspectiveCamera(75, 640 / 360, 0.1, 50);
+      robotCamera.position.set(0, 1, -2);
+      robotCamera.lookAt(0, 1, 1); // look backward
+
+      const wheels = [];
+      const wheelJoints = [];
+      const in2m = (x) => x * 0.0254;
+
+      const chassisGeometry = new THREE.BoxGeometry(1, 0.1, 0.1);
+      const chassisMaterial = new THREE.MeshLambertMaterial({color: 0xc0c0c0});
+      const chassis = new THREE.Mesh(chassisGeometry, chassisMaterial);
+      chassis.position.set(0, 1, 0.1);
+      chassis.castShadow = true;
+      chassis.receiveShadow = true;
+      scene.add(chassis);
+      physx.add(chassis);
+
+      const pendulumGeometry = new THREE.BoxGeometry(0.1, 0.55, 0.1);
+      const pendulumMaterial = new THREE.MeshLambertMaterial({color: 0xff0000});
+      const pendulum = new THREE.Mesh(pendulumGeometry, pendulumMaterial);
+      pendulum.position.set(0, 0.75, 0);
+
+      // add some random angle
+      const R = new THREE.Euler(0, 0, Math.random() * Math.PI * 2 - Math.PI, 'XYZ');
+      const t = new THREE.Vector3(0, -0.25, 0);
+      const t_ = new THREE.Vector3(0, 0.25, 0);
+      t.applyEuler(R);
+      pendulum.setRotationFromEuler(R);
+      pendulum.position.add(t).add(t_);
+
+      pendulum.castShadow = true;
+      pendulum.receiveShadow = true;
+      scene.add(pendulum);
+      physx.add(pendulum, {mass: 1.0});
+
+      const pendulumJoint = physx.hinge({
+        mesh: chassis,
+        xyz: [0, 0, -0.05],
+        axis: [0, 0, -1]
+      }, {
+        mesh: pendulum,
+        xyz: [0, 0.25, 0.05],
+        axis: [0, 0, 1]
+      });
+      const pendulumAction = new Ammo.btVector3(0, 0, 0);
+
+      // Animation loop
+      function animate() {
+        // apply torque to the pendulum
+        const cmd = connection.getCmd();
+        if (cmd) {
+          if (cmd.api === "act") {
+            const action = cmd.action;
+            pendulumAction.setValue(0, 0, action[0] * 2.0); // scale the action up
+          } else if (cmd.api === "reset") {
+            // add some random angle on reset
+            R.set(0, 0, Math.random() * Math.PI * 2 - Math.PI);
+            t.set(0, -0.25, 0);
+            t.applyEuler(R);
+            pendulum.position.set(0, 0.75, 0);
+            pendulum.setRotationFromEuler(R);
+            pendulum.position.add(t).add(t_);
+
+            physx.reset();
+            pendulumAction.setValue(0, 0, 0);
+          }
+        }
+        const angle = pendulum.rotation.z;
+        const angularVel = physx.get(pendulum).getAngularVelocity().z();
+        connection.setObservationReward([Math.cos(angle + Math.PI), Math.sin(angle + Math.PI), angularVel], Math.cos(angle + Math.PI));
+
+        physx.get(pendulum).applyTorque(pendulumAction);
+        physx.step();
+        renderer.render(scene, camera);
+        connection.update(scene, robotCamera);
+      }
+      renderer.setAnimationLoop(animate);
+
+    </script>
+  </body>
+</html>
