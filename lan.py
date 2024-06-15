@@ -20,7 +20,7 @@ import json
 # shared variables
 frame_shape = (360, 640)
 tx_interval = 1 / 120
-filename = './env-tennis-ball-clawbot.html'
+envpath = ""
 
 frame_lock = Lock()
 color_buf = None
@@ -41,7 +41,7 @@ last_rx_time = Array(c_char, 100)
 comms_task = None
 
 async def handle(request):
-  return web.FileResponse(filename)
+  return web.FileResponse(envpath)
 
 app = web.Application()
 app.router.add_get('/', handle)
@@ -146,8 +146,8 @@ async def request_handler(host, port):
       logging.error(e)
       sys.exit(1)
 
-def comms_worker(port, httpport, run, cbuf, dbuf, flock, cbuf2, cam2_en, flock2, mvals, svals, ns, rew, cmd):
-  global main_loop, _running
+def comms_worker(path, port, httpport, run, cbuf, dbuf, flock, cbuf2, cam2_en, flock2, mvals, svals, ns, rew, cmd):
+  global main_loop, _running, envpath
   global color_buf, depth_buf, frame_lock
   global color2_buf, cam2_enable, frame2_lock
   global motor_values, sensor_values, sensor_length, reward_value, cmd_values
@@ -165,6 +165,7 @@ def comms_worker(port, httpport, run, cbuf, dbuf, flock, cbuf2, cam2_en, flock2,
   sensor_length = ns
   reward_value = rew
 
+  envpath = path
   _running = run
   main_loop = asyncio.new_event_loop()
   request_task = main_loop.create_task(request_handler('127.0.0.1', port))
@@ -180,8 +181,8 @@ def comms_worker(port, httpport, run, cbuf, dbuf, flock, cbuf2, cam2_en, flock2,
     main_loop.run_until_complete(main_loop.shutdown_asyncgens())
     main_loop.close()
 
-def start(port=9999, httpport=8765, num_sensors=20, num_motors=10):
-  global comms_task
+def start(path, port=9999, httpport=8765, num_sensors=20, num_motors=10):
+  global comms_task, envpath
   global color_buf, depth_buf, color2_buf
   global motor_values, sensor_values, sensor_length
 
@@ -192,9 +193,10 @@ def start(port=9999, httpport=8765, num_sensors=20, num_motors=10):
   motor_values = Array(c_float, num_motors)
   sensor_values = Array(c_float, num_sensors)
   # sensor_length.value = num_sensors
+  envpath = path
 
   comms_task = Process(target=comms_worker, args=(
-    port, httpport, _running,
+    path, port, httpport, _running,
     color_buf, depth_buf, frame_lock,
     color2_buf, cam2_enable, frame2_lock,
     motor_values, sensor_values, sensor_length,

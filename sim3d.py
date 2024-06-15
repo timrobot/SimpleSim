@@ -1,4 +1,4 @@
-
+import cv2
 import numpy as np
 import customtkinter as ctk
 from multiprocessing import (
@@ -16,20 +16,17 @@ import time
 import webbrowser
 from collections import namedtuple
 import sys
-import cv2
 
 def _depth2rgb(depth):
   return cv2.applyColorMap(np.sqrt(depth).astype(np.uint8), cv2.COLORMAP_HSV)
 
-def _ctk_interface(key_values,color_buf,depth_buf,color2_buf):
+def _ctk_interface(key_values, color_buf, depth_buf, color2_buf):
   ctk.set_appearance_mode("Dark")
   ctk.set_default_color_theme("blue")
   app = ctk.CTk()
   app.geometry("1600x900")
 
   h, w = lan.frame_shape
-  print(color_buf)
-  print(np.uint8)
   color_np = np.frombuffer(color_buf, np.uint8).reshape((h, w, 3))
   depth_np = np.frombuffer(depth_buf, np.uint16).reshape((h, w))
   color2_np = np.frombuffer(color2_buf, np.uint8).reshape((h, w, 3))
@@ -52,7 +49,7 @@ def _ctk_interface(key_values,color_buf,depth_buf,color2_buf):
   canvas_color2_object = color2_canvas.create_image(0, 0, anchor=ctk.NW, image=color2_photo)
 
   def animate():
-    app.after(4, animate)
+    app.after(8, animate)
 
     depth_image = Image.fromarray(_depth2rgb(depth_np))
     color_image = Image.frombuffer('RGB', (w, h), color_buf, 'raw')
@@ -86,18 +83,18 @@ def _ctk_interface(key_values,color_buf,depth_buf,color2_buf):
 
   app.bind("<KeyPress>", on_key_press)
   app.bind("<KeyRelease>", on_key_release)
-  app.after(16, animate)
+  app.after(8, animate)
   app.mainloop()
   lan.stop()
 
 class ThreeSimEnv:
-  def __init__(self, observation_space=None, action_space=None, port=9999, httpport=8765):
+  def __init__(self, htmlpath=None, observation_space=None, action_space=None, port=9999, httpport=8765):
     """Remote Interface showing the data coming in from the robot
 
     Args:
         host (str, optional): host ip of the robot. Defaults to "0.0.0.0".
     """
-    lan.start(port, httpport, observation_space.shape[0], action_space.shape[0])
+    lan.start(htmlpath, port, httpport, observation_space.shape[0], action_space.shape[0])
     self.keyboard_buf = RawArray(c_uint8, 128)
     time.sleep(0.3)
     self.browser_process = webbrowser.open(f"http://127.0.0.1:{httpport}")
@@ -184,8 +181,7 @@ class ThreeSimEnv:
     if not self.ui_task:
       while lan.color_buf is None:
         continue
-      print("Value: ", lan.color_buf)
-      self.ui_task = Process(target=_ctk_interface, args=(self.keyboard_buf,lan.color_buf,lan.depth_buf,lan.color2_buf))
+      self.ui_task = Process(target=_ctk_interface, args=(self.keyboard_buf, lan.color_buf, lan.depth_buf, lan.color2_buf))
       self.ui_task.start()
 
   # convenience functions
@@ -206,8 +202,7 @@ class TennisBallClawbotEnv(ThreeSimEnv):
     action_space.shape = (10,)
     action_space.low = [-1.0] * action_space.shape[0]
     action_space.high = [1.0] * action_space.shape[0]
-    lan.filename = './env-tennis-ball-clawbot.html'
-    super(TennisBallClawbotEnv, self).__init__(observation_space, action_space, port, httpport)
+    super(TennisBallClawbotEnv, self).__init__('./env-tennis-ball-clawbot.html', observation_space, action_space, port, httpport)
   
 class PendulumEnv(ThreeSimEnv):
   def __init__(self, port=9999, httpport=8765):
@@ -219,20 +214,14 @@ class PendulumEnv(ThreeSimEnv):
     action_space.shape = (1,)
     action_space.low = [-1.0] * action_space.shape[0]
     action_space.high = [1.0] * action_space.shape[0]
-    lan.filename = './env-pendulum.html'
-    super(PendulumEnv, self).__init__(observation_space, action_space, port, httpport)
+    super(PendulumEnv, self).__init__('./env-pendulum.html', observation_space, action_space, port, httpport)
 
 if __name__ == "__main__":
   env = TennisBallClawbotEnv()
   while env.running():
-    obs = env.reset()
+    env.reset()
     for i in range(200):
-      y = env.keys["w"] - env.keys["s"]
-      x = env.keys["d"] - env.keys["a"]
-      action = [0] * 10
-      action[0] = y + x
-      action[9] = -y + x
-      action[1] = env.keys["p"] - env.keys["l"]
+      action = [1, 0, 0, 0, 0, 0, 0, 0, 0, -.5]
       next_obs, reward, term, _ = env.step(action)
+      print(next_obs[:2], np.degrees(next_obs[2]))
       env.render()
-      obs = next_obs

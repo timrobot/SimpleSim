@@ -104,38 +104,15 @@ class TennisBallClawbot2dEnv:
     cv2.imshow("sim2d", canvas)
     cv2.waitKey(1)
 
-def teacher(obs):
-  chassis = namedtuple('Mesh', ['xyz', 'rot'])
-  clawBase = namedtuple('Mesh', ['xyz', 'rot'])
-  ball = namedtuple('Mesh', ['xyz', 'rot'])
-  chassis.xyz = np.zeros((3,), np.float32)
-  chassis.rot = 0
-  clawBase.xyz = np.zeros((3,), np.float32)
-  clawBase.rot = 0
-  ball.xyz = np.zeros((3,), np.float32)
-  ball.rot = 0
-  pq = np.zeros((3,), np.float32)
-  chassis.xyz[0], chassis.xyz[1], chassis.rot, armp, armw, ball.xyz[0], ball.xyz[1], pq[0], pq[1], pq[2] = obs
-  pq = -pq # observation is sent in reverse
-  distance = np.linalg.norm(pq)
-  pq_theta = np.arctan2(-pq[0], pq[1])
-  dtheta = pq_theta - chassis.rot
-  while dtheta > np.pi: dtheta -= 2 * np.pi
-  while dtheta < -np.pi: dtheta += 2 * np.pi
-
-  action = np.array([1, 0, 0, 0, 0, 0, 0, 0, 0, 1], np.float32) * (-np.sqrt(dtheta) if dtheta >= 0 else np.sqrt(-dtheta))
-  if np.abs(dtheta) <= np.pi / 4:
-    action = action * 0.3 + np.array([1, 0, 0, 0, 0, 0, 0, 0, 0, -1], np.float32) * min(distance, 1.0)
-  return action
+  def running(self):
+    return True
 
 if __name__ == "__main__":
   env = TennisBallClawbot2dEnv()
-  while True:
-    obs = env.reset()
+  while env.running():
+    env.reset()
     for i in range(200):
-      # use teacher policy
-      action = teacher(obs)
+      action = [1, 0, 0, 0, 0, 0, 0, 0, 0, -.5]
       next_obs, reward, term, _ = env.step(action)
       print(next_obs[:2], np.degrees(next_obs[2]))
       env.render()
-      obs = next_obs
