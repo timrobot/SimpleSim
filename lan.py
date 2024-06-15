@@ -151,7 +151,6 @@ def comms_worker(port, httpport, run, cbuf, dbuf, flock, cbuf2, cam2_en, flock2,
   global color_buf, depth_buf, frame_lock
   global color2_buf, cam2_enable, frame2_lock
   global motor_values, sensor_values, sensor_length, reward_value, cmd_values
-
   color_buf = cbuf
   depth_buf = dbuf
   frame_lock = flock

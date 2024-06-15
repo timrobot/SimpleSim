@@ -1,4 +1,4 @@
-import cv2
+
 import numpy as np
 import customtkinter as ctk
 from multiprocessing import (
@@ -16,20 +16,23 @@ import time
 import webbrowser
 from collections import namedtuple
 import sys
+import cv2
 
 def _depth2rgb(depth):
   return cv2.applyColorMap(np.sqrt(depth).astype(np.uint8), cv2.COLORMAP_HSV)
 
-def _ctk_interface(key_values):
+def _ctk_interface(key_values,color_buf,depth_buf,color2_buf):
   ctk.set_appearance_mode("Dark")
   ctk.set_default_color_theme("blue")
   app = ctk.CTk()
   app.geometry("1600x900")
 
   h, w = lan.frame_shape
-  color_np = np.frombuffer(lan.color_buf, np.uint8).reshape((h, w, 3))
-  depth_np = np.frombuffer(lan.depth_buf, np.uint16).reshape((h, w))
-  color2_np = np.frombuffer(lan.color2_buf, np.uint8).reshape((h, w, 3))
+  print(color_buf)
+  print(np.uint8)
+  color_np = np.frombuffer(color_buf, np.uint8).reshape((h, w, 3))
+  depth_np = np.frombuffer(depth_buf, np.uint16).reshape((h, w))
+  color2_np = np.frombuffer(color2_buf, np.uint8).reshape((h, w, 3))
 
   depth_image = Image.fromarray(_depth2rgb(depth_np))
   color_image = Image.fromarray(color_np)
@@ -49,13 +52,13 @@ def _ctk_interface(key_values):
   canvas_color2_object = color2_canvas.create_image(0, 0, anchor=ctk.NW, image=color2_photo)
 
   def animate():
-    app.after(16, animate)
+    app.after(4, animate)
 
     depth_image = Image.fromarray(_depth2rgb(depth_np))
-    color_image = Image.frombuffer('RGB', (w, h), lan.color_buf, 'raw')
+    color_image = Image.frombuffer('RGB', (w, h), color_buf, 'raw')
     c2 = lan.cam2_enable.value
     if c2:
-      color2_image = Image.frombuffer('RGB', (w, h), lan.color_buf, 'raw')
+      color2_image = Image.frombuffer('RGB', (w, h), color_buf, 'raw')
 
     color_photo.paste(color_image)
     depth_photo.paste(depth_image)
@@ -179,7 +182,10 @@ class ThreeSimEnv:
   
   def render(self):
     if not self.ui_task:
-      self.ui_task = Process(target=_ctk_interface, args=(self.keyboard_buf,))
+      while lan.color_buf is None:
+        continue
+      print("Value: ", lan.color_buf)
+      self.ui_task = Process(target=_ctk_interface, args=(self.keyboard_buf,lan.color_buf,lan.depth_buf,lan.color2_buf))
       self.ui_task.start()
 
   # convenience functions
