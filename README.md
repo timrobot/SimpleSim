@@ -1,8 +1,14 @@
 # SimpleSim
 Hello! This environment is a simple simulation engine to view and control a standard VEX Clawbot and move it via motor torques.
 
+#### Installation
+
+```bash
+python3 -m pip install -r requirements.txt
+```
+
 ### Example
-You will notice that the interface to the simulation engine is very similar to Gym's interface, as Gym seems to be the most popular RL sim framework, and for good reason. It's quite simple to read, and easy to get up and running.
+You will notice that the interface to the simulation engine is very similar to Gym's interface, for good reason. It's quite simple to read, and easy to get up and running.
 
 ```python
 from sim3d import TennisBallClawbotEnv
@@ -22,18 +28,18 @@ if __name__ == "__main__":
 ```
 
 ### Description
-A ball is positioned randomly inside of a standard 144"x144" field. The goal of the robot is to navigate to the position of the ball such that the ball is at the center of the claw. This environment via Three.js using Ammo/Bullet physics. It runs on Windows/Mac/Linux and does not require a GPU.
+A ball is positioned randomly inside of a standard 144"x144" field. The goal of the robot is to navigate to the position of the ball such that the ball is at the center of the claw. This environment is made with Three.js using Ammo/Bullet physics. It runs on Windows/Mac/Linux and does not require a GPU.
 
 |  |  |
 | -- | -- |
 | Action Space | Box(-1.0, 1.0, (10,), float32) |
 | Observation Shape | (10,) |
 | Observation High | [inf inf inf inf inf inf inf inf inf inf ] |
-| Observation Low | [-inf -inf -inf -inf -inf -inf -inf -inf -inf -inf ] |
+| Observation Low | [-inf -inf -inf -inf -inf -inf -inf -inf -inf -inf] |
 | Import | `from sim3d import TennisBallClawbotEnv` |
 
 ### Action Space
-Some actions are left intentionally blank to reflect a VEX microcontrollers disconnected ports.
+Some actions are left intentionally blank to reflect the VEX microcontroller's disconnected ports.
 
 | Num | Action | Control Min | Control Max | Unit |
 | --- | ------ | ----------- | ----------- | ---- |
@@ -64,6 +70,6 @@ Some actions are left intentionally blank to reflect a VEX microcontrollers disc
 | 9 | Pitch relative to ball | 0 | 0 | radians |
 
 ### Reward
-A reward is given based on the distance the claw is from the ball, as well as the difference in orientation of the claw from the direction of the claw to the target ball.
+A reward is given based on the distance the claw is from the ball, as well as the difference of the claw's orientation from the direction from the claw to the ball.
 
 `reward = 1 - sum(ball.xyz - claw.xyz).sqrt() - abs(heading - angleto(claw, ball)) / PI`
