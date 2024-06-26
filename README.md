@@ -1,5 +1,5 @@
 # SimpleSim
-Hello! This environment is a simple simulation engine to view and control a standard VEX Clawbot and move it via motor torques.
+This environment is a simple simulation engine to view and control a standard VEX Clawbot and move it via motor torques. This is in <b>BETA</b> until a package can be created and some features added, however feel free to test as you like.
 
 #### Installation
 
@@ -34,7 +34,7 @@ A ball is positioned randomly inside of a standard 144"x144" field. The goal of 
 | -- | -- |
 | Action Space | Box(-1.0, 1.0, (10,), float32) |
 | Observation Shape | (10,) |
-| Observation High | [inf inf inf inf inf inf inf inf inf inf ] |
+| Observation High | [inf inf inf inf inf inf inf inf inf inf] |
 | Observation Low | [-inf -inf -inf -inf -inf -inf -inf -inf -inf -inf] |
 | Import | `from sim3d import TennisBallClawbotEnv` |
 
@@ -45,7 +45,7 @@ Some actions are left intentionally blank to reflect the VEX microcontroller's d
 | --- | ------ | ----------- | ----------- | ---- |
 | 0 | Angular velocity target of the left motor | -1 | 1 | rpm (rad/m) |
 | 1 | Torque applied on the arm | -1 | 1 | Torque (Nm) |
-| 2 | Torque applued on the claw (<i>pending</i>) | -1 | 1 | Torque (Nm) |
+| 2 | Torque applied on the claw (<i>pending</i>) | -1 | 1 | Torque (Nm) |
 | 3 | ❌ |  |  |  |
 | 4 | ❌ |  |  |  |
 | 5 | ❌ |  |  |  |
@@ -73,3 +73,13 @@ Some actions are left intentionally blank to reflect the VEX microcontroller's d
 A reward is given based on the distance the claw is from the ball, as well as the difference of the claw's orientation from the direction from the claw to the ball.
 
 `reward = 1 - sum(ball.xyz - claw.xyz).sqrt() - abs(heading - angleto(claw, ball)) / PI`
+
+### Environmental Details
+Color and depth frames are shown on a window when `render()` gets called. This window also allows keyboard inputs to be queried, meaning that if you wanted to
+manually control the robot, you can call the `env.keys[keyname:str]` api. For example
+
+```python
+env.render()
+while True:
+  a_pressed = env.keys['a'] # 0 or 1
+```
