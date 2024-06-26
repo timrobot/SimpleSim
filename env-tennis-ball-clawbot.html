@@ -68,6 +68,7 @@
       import * as THREE from 'three';
       import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
       import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js';
+      import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
       import AmmoPhysics from '/static/js/physics.js';
       import WSConnection from '/static/js/lan.js';
 
@@ -114,9 +115,6 @@
 
       // Create controller for viewing
       const controller = new OrbitControls(camera, renderer.domElement);
-
-      // Create websocket connection
-      const connection = new WSConnection(9999, 640, 360, 0.1, 60);
       
       // Create a ground plane in Three.js
       const in2m = (x) => x * 0.0254;
@@ -130,37 +128,29 @@
       physx.add(ground, {collideGroup: colGroup.env, collideWith: everyCollideGroup});
 
       // Create a wall in Three.js
-      const wallGeometry = new THREE.BoxGeometry(4, in2m(12), in2m(2));
-      const wallMaterial = new THREE.MeshLambertMaterial({color: 0xff00ff});
+      // const loader = new GLTFLoader();
+      // const field_wall_url = '/static/models/Field Wall.gltf';
       const walls = [];
-      for (let i = 0; i < 4; i++) {
-        walls.push(new THREE.Mesh(wallGeometry, wallMaterial));
-      }
-      walls[0].position.set( 0, in2m(6), 2.5);
-      walls[1].position.set( 2.5, in2m(6), 0);
-      walls[1].rotateY(Math.PI / 2);
-      walls[2].position.set( 0, in2m(6),-2.5);
-      walls[3].position.set(-2.5, in2m(6), 0);
-      walls[3].rotateY(Math.PI / 2);
-      const wall2Geometry = new THREE.BoxGeometry(1, in2m(12), in2m(2));
-      for (let i = 0; i < 4; i++) {
-        walls.push(new THREE.Mesh(wall2Geometry, wallMaterial));
-      }
-      const wallCorner = 2.25;
-      walls[4].position.set(-wallCorner, in2m(6), wallCorner);
-      walls[4].rotateY(-Math.PI / 4);
-      walls[5].position.set( wallCorner, in2m(6), wallCorner);
-      walls[5].rotateY( Math.PI / 4);
-      walls[6].position.set( wallCorner, in2m(6),-wallCorner);
-      walls[6].rotateY(-Math.PI / 4);
-      walls[7].position.set(-wallCorner, in2m(6),-wallCorner);
-      walls[7].rotateY( Math.PI / 4);
-      for (const wall of walls) {
-        wall.castShadow = true;
-        wall.receiveShadow = true;
-        scene.add(wall);
-        physx.add(wall, {collideGroup: colGroup.env, collideWith: everyCollideGroup});
-      }
+      // loader.load(field_wall_url, (mesh) => {
+        const wallGeometry = new THREE.BoxGeometry(in2m(145), in2m(13.5), in2m(1));
+        const wallMaterial = new THREE.MeshLambertMaterial({color: 0xa0a0a0});
+        for (let i = 0; i < 4; i++) {
+          walls.push(new THREE.Mesh(wallGeometry, wallMaterial));
+        }
+        walls[0].position.set( 0, in2m(6.75), in2m(73));
+        walls[1].position.set( in2m(73), in2m(6.75), 0);
+        walls[1].rotateY(Math.PI / 2);
+        walls[2].position.set( 0, in2m(6.75),-in2m(73));
+        walls[3].position.set(-in2m(73), in2m(6.75), 0);
+        walls[3].rotateY(Math.PI / 2);
+        for (const wall of walls) {
+          wall.castShadow = true;
+          wall.receiveShadow = true;
+          scene.add(wall);
+          physx.add(wall, {collideGroup: colGroup.env, collideWith: everyCollideGroup,
+            geometry: "BoxGeometry", parameters: {width: in2m(145), height: in2m(13.5), depth: in2m(1)}});
+        }
+      // });
 
       // Create the axes for x, z
       const poleGeometry = new THREE.CylinderGeometry(0.05, 0.05, 3);
@@ -354,11 +344,6 @@
       robotCamera.lookAt(0, in2m(2.5), -1); // look forward
       arm1.add(robotCamera);
 
-      // const loader = new ColladaLoader();
-      // const robot_url = '/static/models/Base.dae';
-      // loader.load(robot_url, (model) => {
-      // });
-
       // load in a basic sphere as our "object"
       const ballGeometry = new THREE.SphereGeometry(in2m(1.28));
       const ballMaterial = new THREE.MeshLambertMaterial({color: 0x10ff00});
@@ -376,48 +361,11 @@
       const meters_psec = omega * in2m(2);
       const linearCoeff = meters_psec;
       const angularCoeff = meters_psec / in2m(10);
-      function animate() {
-        // apply torque to the pendulum
-        const cmd = connection.getCmd();
-        if (cmd) {
-          if (cmd.api === "act") {
-            const action = cmd.action;
-            leftAction = action[0];
-            rightAction = -action[9];
-            armAction = action[1];
-          } else if (cmd.api === "reset") {
-            chassis.position.set(Math.random() * in2m(72) - in2m(36), in2m(2.75), Math.random() * in2m(72) - in2m(36));
-            physx.T_.setIdentity();
-            physx.p_.setValue(chassis.position.x, chassis.position.y + in2m(2.875), chassis.position.z);
-            physx.T_.setOrigin(physx.p_);
-            physx.q_.setValue(chassis.quaternion.x, chassis.quaternion.y, chassis.quaternion.z, chassis.quaternion.w);
-            physx.T_.setRotation(physx.q_);
-            physx.get(chassis).setWorldTransform(physx.T_);
-            physx.get(chassis).getMotionState().setWorldTransform(physx.T_);
-            physx.p_.setValue(0, 0, 0);
-            physx.get(chassis).setLinearVelocity(physx.p_);
-            physx.get(chassis).setAngularVelocity(physx.p_);
 
-            p.set(0, in2m(7.5), in2m(0));
-            p.applyQuaternion(chassis.quaternion);
-            p.add(chassis.position);
-            arm1.position.set(p.x, p.y, p.z);
-            p.set(0, in2m(5.5), in2m(0));
-            p.applyQuaternion(chassis.quaternion);
-            p.add(chassis.position);
-            arm2.position.set(p.x, p.y, p.z);
-            p.set(0, in2m(6.5), in2m(-5));
-            p.applyQuaternion(chassis.quaternion);
-            p.add(chassis.position);
-            clawBase.position.set(p.x, p.y, p.z);
+      // Create websocket connection
+      const connection = new WSConnection(9999, 640, 360, 0.1, 60);
 
-            ball.position.set(Math.random() * in2m(144) - in2m(72), in2m(1.28), Math.random() * in2m(144) - in2m(72));
-            console.log("Reset the world, new ball position:", ball.position);
-
-            physx.reset();
-          }
-        }
-
+      function calcReward() {
         heading.setFromQuaternion(chassis.quaternion, 'YZX');
         const distance = clawBase.position.distanceTo(ball.position);
         const pq_theta = Math.atan2(clawBase.position.x - ball.position.x, clawBase.position.z - ball.position.z);
@@ -434,10 +382,50 @@
           physx.get(arm1).getAngularVelocity().x(),
           ball.position.x,
           -ball.position.z,
-          clawBase.position.x - ball.position.x,
-          -(clawBase.position.z - ball.position.z),
-          clawBase.position.y - ball.position.y
+          distance,
+          dtheta,
+          0
         ], reward);
+        connection.render(scene, robotCamera);
+      }
+
+      connection.onreset = () => {
+        chassis.position.set(Math.random() * in2m(72) - in2m(36), in2m(2.75), Math.random() * in2m(72) - in2m(36));
+        physx.T_.setIdentity();
+        physx.p_.setValue(chassis.position.x, chassis.position.y + in2m(2.875), chassis.position.z);
+        physx.T_.setOrigin(physx.p_);
+        physx.q_.setValue(chassis.quaternion.x, chassis.quaternion.y, chassis.quaternion.z, chassis.quaternion.w);
+        physx.T_.setRotation(physx.q_);
+        physx.get(chassis).setWorldTransform(physx.T_);
+        physx.get(chassis).getMotionState().setWorldTransform(physx.T_);
+        physx.p_.setValue(0, 0, 0);
+        physx.get(chassis).setLinearVelocity(physx.p_);
+        physx.get(chassis).setAngularVelocity(physx.p_);
+
+        p.set(0, in2m(7.5), in2m(0));
+        p.applyQuaternion(chassis.quaternion);
+        p.add(chassis.position);
+        arm1.position.set(p.x, p.y, p.z);
+        p.set(0, in2m(5.5), in2m(0));
+        p.applyQuaternion(chassis.quaternion);
+        p.add(chassis.position);
+        arm2.position.set(p.x, p.y, p.z);
+        p.set(0, in2m(6.5), in2m(-5));
+        p.applyQuaternion(chassis.quaternion);
+        p.add(chassis.position);
+        clawBase.position.set(p.x, p.y, p.z);
+
+        ball.position.set(Math.random() * in2m(140) - in2m(70), in2m(1.28), Math.random() * in2m(140) - in2m(70));
+        console.log("Reset the world, new ball position:", ball.position);
+
+        physx.reset();
+        calcReward();
+      };
+
+      connection.onstep = (action) => {
+        leftAction = action[0];
+        rightAction = -action[9];
+        armAction = action[1];
 
         physx.getTransform(chassis, p, q);
         v.set(0, 0, linearCoeff * -(leftAction + rightAction) / 2);
@@ -453,10 +441,13 @@
         chassis.quaternion.set(q.x, q.y, q.z, q.w);
         chassis_arm1.enableAngularMotor(true, armAction, 2);
 
+        calcReward();
+      };
+
+      function render() {
         renderer.render(scene, camera);
-        connection.update(scene, robotCamera);
       }
-      renderer.setAnimationLoop(animate);
+      renderer.setAnimationLoop(render);
 
     </script>
   </body>

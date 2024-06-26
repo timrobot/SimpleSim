@@ -120,30 +120,9 @@
       scene.add(groundMesh);
       physx.add(groundMesh);
 
-      // Create a cube in Three.js
-      const cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
-      const cubeMaterial = new THREE.MeshLambertMaterial({color: 0x00a0ff});
-      const cubeMesh = new THREE.Mesh(cubeGeometry, cubeMaterial);
-      cubeMesh.position.set(-1, 0.5, 3);
-      cubeMesh.castShadow = true;
-      cubeMesh.receiveShadow = true;
-      scene.add(cubeMesh);
-      physx.add(cubeMesh, {mass:1.0});
-      const cubeMesh2 = new THREE.Mesh(cubeGeometry, cubeMaterial);
-      cubeMesh2.position.set(1, 0.5, 5);
-      cubeMesh2.castShadow = true;
-      cubeMesh2.receiveShadow = true;
-      scene.add(cubeMesh2);
-      physx.add(cubeMesh2, {mass:1.0});
-
-      // Now we can load the robot_model
-      const robotCamera = new THREE.PerspectiveCamera(75, 640 / 360, 0.1, 50);
-      robotCamera.position.set(0, 1, -2);
-      robotCamera.lookAt(0, 1, 1); // look backward
-
-      const wheels = [];
-      const wheelJoints = [];
-      const in2m = (x) => x * 0.0254;
+      const streamCamera = new THREE.PerspectiveCamera(75, 640 / 360, 0.1, 50);
+      streamCamera.position.set(0, 1, -2);
+      streamCamera.lookAt(0, 1, 1); // look backward
 
       const chassisGeometry = new THREE.BoxGeometry(1, 0.1, 0.1);
       const chassisMaterial = new THREE.MeshLambertMaterial({color: 0xc0c0c0});
@@ -181,39 +160,41 @@
         xyz: [0, 0.25, 0.05],
         axis: [0, 0, 1]
       });
+      
+      //// Animation loop
       const pendulumAction = new Ammo.btVector3(0, 0, 0);
 
-      // Animation loop
-      function animate() {
-        // apply torque to the pendulum
-        const cmd = connection.getCmd();
-        if (cmd) {
-          if (cmd.api === "act") {
-            const action = cmd.action;
-            pendulumAction.setValue(0, 0, action[0] * 2.0); // scale the action up
-          } else if (cmd.api === "reset") {
-            // add some random angle on reset
-            R.set(0, 0, Math.random() * Math.PI * 2 - Math.PI);
-            t.set(0, -0.25, 0);
-            t.applyEuler(R);
-            pendulum.position.set(0, 0.75, 0);
-            pendulum.setRotationFromEuler(R);
-            pendulum.position.add(t).add(t_);
-
-            physx.reset();
-            pendulumAction.setValue(0, 0, 0);
-          }
-        }
+      function calcReward() {
         const angle = pendulum.rotation.z;
         const angularVel = physx.get(pendulum).getAngularVelocity().z();
         connection.setObservationReward([Math.cos(angle + Math.PI), Math.sin(angle + Math.PI), angularVel], Math.cos(angle + Math.PI));
-
-        physx.get(pendulum).applyTorque(pendulumAction);
-        physx.step();
-        renderer.render(scene, camera);
-        connection.update(scene, robotCamera);
+        connection.render(scene, streamCamera);
       }
-      renderer.setAnimationLoop(animate);
+
+      connection.onreset = () => {
+        R.set(0, 0, Math.random() * Math.PI * 2 - Math.PI);
+        t.set(0, -0.25, 0);
+        t.applyEuler(R);
+        pendulum.position.set(0, 0.75, 0);
+        pendulum.setRotationFromEuler(R);
+        pendulum.position.add(t).add(t_);
+
+        physx.reset();
+        pendulumAction.setValue(0, 0, 0);
+        calcReward();
+      };
+
+      connection.onstep = (action) => {
+        pendulumAction.setValue(0, 0, action[0] * 2.0); // scale the action up
+        physx.get(pendulum).applyTorque(pendulumAction);
+        physx.step(0.1);
+        calcReward();
+      };
+
+      function render() {
+        renderer.render(scene, camera);
+      }
+      renderer.setAnimationLoop(render);
 
     </script>
   </body>

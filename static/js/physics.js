@@ -27,7 +27,8 @@ class AmmoPhysics {
     options = options || {};
     const mass = options.mass === undefined ? 0 : options.mass;
 
-    const params = mesh.geometry.parameters;
+    const geometry_type = options.geometry || mesh.geometry.type;
+    const params = options.parameters || mesh.geometry.parameters;
     this.T_.setIdentity();
     this.p_.setValue(mesh.position.x, mesh.position.y, mesh.position.z);
     this.T_.setOrigin(this.p_);
@@ -37,7 +38,7 @@ class AmmoPhysics {
     const motionState = new Ammo.btDefaultMotionState(this.T_);
     let collisionShape;
     let I, w, h, d, r, l;
-    switch (mesh.geometry.type) {
+    switch (geometry_type) {
       case "BoxGeometry":
         I = mass / 3;
         w = params.width * 0.5;
@@ -164,8 +165,8 @@ class AmmoPhysics {
     }
   }
 
-  step() {
-    const deltaTime = this.clock.getDelta();
+  step(dt) {
+    const deltaTime = dt || this.clock.getDelta();
 
     // apply physics properties
     for (const body of this.bodies) {
@@ -181,7 +182,7 @@ class AmmoPhysics {
       }
     }
 
-    this.world.stepSimulation(deltaTime, 10);
+    this.world.stepSimulation(deltaTime, 20);
 
     for (const body of this.bodies) {
       const rigidbody = body.userData.rigidbody;

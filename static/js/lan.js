@@ -5,7 +5,6 @@ class WSConnection {
     port = port || 9999;
 
     // Offscreen elements (cameras)
-    this.require_capture = false;
     this.colorURL;
     this.depthURL;
 
@@ -73,7 +72,11 @@ class WSConnection {
     // data hooks for ws
     this.observation = [];
     this.reward = 0;
-    this.cmd = null;
+    this.terminal = false;
+    // this.cmd = null;
+
+    this.onreset = null;
+    this.onstep = null;
 
     this.ws = new WebSocket(`ws://127.0.0.1:${port}`);
     this.ws_connected = false;
@@ -84,8 +87,13 @@ class WSConnection {
 
     this.ws.onmessage = (event) => {
       const cmd = JSON.parse(event.data);
-      if (this.cmd === null || cmd.api === "reset")
-        this.cmd = cmd;
+      if (cmd.api === "reset" && this.onreset) {
+        this.onreset();
+        this._update_callback();
+      } else if (cmd.api === "act" && this.onstep) {
+        this.onstep(cmd.action);
+        this._update_callback();
+      }
     };
 
     this.ws.onclose = () => {
@@ -101,72 +109,69 @@ class WSConnection {
       this.ws_connected = false;
     };
 
-    this._update_callback();
+    // this._update_callback();
   }
 
   _update_callback() {
-    setTimeout(this._update_callback.bind(this), 16);
-    this.require_capture = this.ws_connected;
-    if (this.ws_connected && this.colorURL && this.depthURL) {
-      const obsrew = JSON.stringify({
-        "obs": this.observation,
-        "rew": this.reward
-      });
-      this.ws.send(obsrew + '$' + this.colorURL + ',' + this.depthURL);
+    if (this.ws_connected) {
+      if (this.colorURL && this.depthURL) {
+        const color = this.colorURL;
+        const depth = this.depthURL;
+        this.colorURL = null;
+        this.depthURL = null;
+        const info = JSON.stringify({
+          "obs": this.observation,
+          "rew": this.reward,
+          "term": this.terminal
+        });
+        this.ws.send(info + '$' + color + ',' + depth);
+      } else {
+        setTimeout(this._update_callback.bind(this), 8);
+      }
     }
   }
 
-  setObservationReward(obs, rew) {
+  setObservationReward(obs, rew, term) {
     this.observation = obs;
     this.reward = rew;
+    this.terminal = term || false;
   }
 
-  getCmd() {
-    const cmd = this.cmd;
-    if (cmd) {
-      this.cmd = null;
-    }
-    return cmd;
-  }
-
-  update(scene, offscreenCamera) {
+  render(scene, offscreenCamera) {
     // Render the scene to offscreen targets
-    if (this.require_capture) {
-      this.colorRenderer.render(scene, offscreenCamera);
+    this.colorRenderer.render(scene, offscreenCamera);
 
-      // render scene into target
-      this.depthRenderer.setRenderTarget(this.target);
-      this.depthRenderer.render(scene, offscreenCamera);
+    // render scene into target
+    this.depthRenderer.setRenderTarget(this.target);
+    this.depthRenderer.render(scene, offscreenCamera);
 
-      // render post FX
-      this.postMaterial.uniforms.tDiffuse.value = this.target.texture;
-      this.postMaterial.uniforms.tDepth.value = this.target.depthTexture;
+    // render post FX
+    this.postMaterial.uniforms.tDiffuse.value = this.target.texture;
+    this.postMaterial.uniforms.tDepth.value = this.target.depthTexture;
 
-      this.depthRenderer.setRenderTarget(null);
-      this.depthRenderer.render(this.postScene, this.postCamera);
+    this.depthRenderer.setRenderTarget(null);
+    this.depthRenderer.render(this.postScene, this.postCamera);
 
-      const options = {
-        type: 'image/webp', // Specify the desired format
-        quality: 1.0, // Set the image quality (optional, 0.0 to 1.0)
+    const options = {
+      type: 'image/webp', // Specify the desired format
+      quality: 1.0, // Set the image quality (optional, 0.0 to 1.0)
+    };
+
+    this.colorCanvas.convertToBlob(options).then((blob) => {
+      let colorreader = new FileReader();
+      colorreader.onload = () => {
+        this.colorURL = colorreader.result;
       };
+      colorreader.readAsDataURL(blob);
+    });
+    this.depthCanvas.convertToBlob(options).then((blob) => {
+      let depthreader = new FileReader();
+      depthreader.onload = () => {
+        this.depthURL = depthreader.result;
+      };
+      depthreader.readAsDataURL(blob);
+    });
 
-      this.colorCanvas.convertToBlob(options).then((blob) => {
-        let colorreader = new FileReader();
-        colorreader.onload = () => {
-          this.colorURL = colorreader.result;
-        };
-        colorreader.readAsDataURL(blob);
-      });
-      this.depthCanvas.convertToBlob(options).then((blob) => {
-        let depthreader = new FileReader();
-        depthreader.onload = () => {
-          this.depthURL = depthreader.result;
-        };
-        depthreader.readAsDataURL(blob);
-      });
-
-      this.require_capture = false;
-    }
   }
 };
 

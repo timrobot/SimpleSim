@@ -27,6 +27,12 @@ class TennisBallClawbot2dEnv:
     self.action_space.high = [1.0] * self.action_space.shape[0]
 
   def generate_observation(self):
+    pq = self.ball.position - self.clawBase.position
+    distance = np.linalg.norm(pq)
+    pq_theta = np.arctan2(-pq[0], pq[1])
+    dtheta = pq_theta - self.chassis.rotation
+    while dtheta > np.pi: dtheta -= 2 * np.pi
+    while dtheta < -np.pi: dtheta += 2 * np.pi
     return [
       self.chassis.position[0],
       self.chassis.position[1],
@@ -35,19 +41,17 @@ class TennisBallClawbot2dEnv:
       0.0,
       self.ball.position[0],
       self.ball.position[1],
-      self.clawBase.position[0] - self.ball.position[0],
-      self.clawBase.position[1] - self.ball.position[1],
-      self.clawBase.position[2] - self.ball.position[2]
+      distance,
+      dtheta, # this is an estimate, will need to figure this out later
+      0
     ]
 
   @property
   def clawBase(self):
-    z = self.chassis.rotation
-    cz = np.cos(z)
-    sz = np.sin(z)
+    forward = Rotation.from_euler('z', self.chassis.rotation).as_matrix()[:, 1].astype(np.float32)
     mesh = namedtuple('Mesh', ['position', 'rotation'])
-    mesh.position = in2m(5) * np.array([-sz, cz, 0]) + self.chassis.position
-    mesh.rotation = z
+    mesh.position = in2m(5) * forward + self.chassis.position
+    mesh.rotation = self.chassis.rotation
     return mesh
 
   def reset(self):
@@ -59,6 +63,7 @@ class TennisBallClawbot2dEnv:
     return self.generate_observation()
 
   def step(self, action, timestep=0.1):
+    assert (len(action) == self.action_space.shape[0])
     action = np.clip(action, self.action_space.low, self.action_space.high)
     rpm = 100
     omega = rpm * 2 * np.pi / 60
@@ -78,9 +83,7 @@ class TennisBallClawbot2dEnv:
     while yaw < -np.pi: yaw += 2 * np.pi
     self.chassis.rotation = yaw
 
-    cz = np.cos(yaw)
-    sz = np.sin(yaw)
-    forward = np.array([-sz, cz, 0], np.float32)
+    forward = Rotation.from_euler('z', yaw).as_matrix()[:, 1].astype(np.float32)
     self.chassis.position += forward * linear_vel * timestep
     self.chassis.position = np.clip(self.chassis.position, -2.5, 2.5)
 

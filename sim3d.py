@@ -94,7 +94,7 @@ class ThreeSimEnv:
     Args:
         host (str, optional): host ip of the robot. Defaults to "0.0.0.0".
     """
-    lan.start(htmlpath, port, httpport, observation_space.shape[0], action_space.shape[0])
+    lan.start(htmlpath, port, httpport)
     self.keyboard_buf = RawArray(c_uint8, 128)
     time.sleep(0.3)
     self.browser_process = webbrowser.open(f"http://127.0.0.1:{httpport}")
@@ -117,17 +117,15 @@ class ThreeSimEnv:
     return {
       chr(x): self.keyboard_buf[x] for x in range(128)
     }
-
-  def read(self):
-    """Read sensor values from the robot, including color and depth
-
-    Returns:
-        (np.ndarray, np.ndarray, np.ndarray, dict): color, depth, other sensor values
-    """
-    return lan.read()
   
   def running(self):
-    return lan.running()
+    _running = lan.running()
+    if not _running:
+      lan.stop()
+      if self.ui_task:
+        self.ui_task.kill()
+        self.ui_task = None
+    return _running
   
   def step(self, values):
     """
@@ -139,43 +137,25 @@ class ThreeSimEnv:
       raise Exception("Environment has been torn down.")
     self._steps += 1
 
-    lan.write(values)
-    time.sleep(0.05) # wait a tiny bit to get some observation propagation
-    color, depth, sensors, info = lan.read()
-    reward = info["reward"]
-    terminal = self._steps == self.max_steps
+    observation, reward, terminal, info = lan.step(values)
+    terminal = terminal or self._steps >= self.max_steps
+    info["time"] = self._steps * .1
+    return observation, reward, terminal, info
 
-    return sensors, reward, terminal, {
-      "color": color,
-      "depth": depth,
-      "color2": info["cam2"],
-      "time": info["time"]
-    }
-
-  def reset(self, full_obs=False):
+  def reset(self, extra_info=False):
     """
     Convenience function to act like OpenAI Gym reset()
     """
     if not lan.running():
       raise Exception("Environment has been torn down.")
-    
-    lan.reset()
     self._steps = 0
-    time.sleep(0.5) # wait a bit for the simulation to reset
-    # usually it better to run the last action that you were going to do,
-    # then process the current observation and label it as the "next" observation
-
-    color, depth, sensors, info = lan.read()
-    while len(sensors) == 0:
-      color, depth, sensors, info = lan.read()
-    info.pop("reward")
-    return sensors if not full_obs else {
-      "sensors": sensors,
-      "color": color,
-      "depth": depth,
-      "color2": info["cam2"],
-      "time": info["time"]
-    }
+    
+    observation, reward, terminal, info = lan.reset()
+    info["time"] = 0
+    if not extra_info:
+      return observation
+    else:
+      return observation, info
   
   def render(self):
     if not self.ui_task:
@@ -183,14 +163,6 @@ class ThreeSimEnv:
         continue
       self.ui_task = Process(target=_ctk_interface, args=(self.keyboard_buf, lan.color_buf, lan.depth_buf, lan.color2_buf))
       self.ui_task.start()
-
-  # convenience functions
-  @property
-  def motor(self):
-    return lan.motor_values
-  
-  def read(self):
-    return lan.read()
   
 class TennisBallClawbotEnv(ThreeSimEnv):
   def __init__(self, port=9999, httpport=8765):
@@ -221,7 +193,7 @@ if __name__ == "__main__":
   while env.running():
     env.reset()
     for i in range(200):
-      action = [1, 0, 0, 0, 0, 0, 0, 0, 0, -.5]
+      action = [1]
       next_obs, reward, term, _ = env.step(action)
-      print(next_obs[:2], np.degrees(next_obs[2]))
+      print(next_obs)
       env.render()
