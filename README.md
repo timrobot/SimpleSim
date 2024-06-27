@@ -65,7 +65,7 @@ Some actions are left intentionally blank to reflect the VEX microcontroller's d
 | 4 | Arm angular velocity | -inf | inf | rad/s |
 | 5 | Ball position x | -1.83 | 1.83 | position (m) |
 | 6 | Ball position y | -1.83 | 1.83 | position (m) |
-| 7 | Ball distance from claw | 0 | 13.38 | distance (m) |
+| 7 | Ball distance from claw | 0 | 5.18 | distance (m) |
 | 8 | Counter-clockwise heading relative to ball | -𝜋 | 𝜋 | radians |
 | 9 | Pitch relative to ball | 0 | 0 | radians |
 

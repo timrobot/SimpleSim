@@ -18,7 +18,7 @@ from collections import namedtuple
 import sys
 
 def _depth2rgb(depth):
-  return cv2.applyColorMap(np.sqrt(depth).astype(np.uint8), cv2.COLORMAP_HSV)
+  return cv2.applyColorMap(np.clip(np.sqrt(depth) * 4, 0, 255).astype(np.uint8), cv2.COLORMAP_HSV)
 
 def _ctk_interface(key_values, color_buf, depth_buf, color2_buf):
   ctk.set_appearance_mode("Dark")
@@ -68,18 +68,24 @@ def _ctk_interface(key_values, color_buf, depth_buf, color2_buf):
       color2_canvas.itemconfig(canvas_color2_object, image=color2_photo)
 
   keycodes = {}
+  keyrelease = {}
 
   def on_key_press(event):
     charcode = ord(event.char) if event.char else None
     if charcode and charcode > 0 and charcode < 128:
       keycodes[event.keycode] = charcode
+      keyrelease[event.keycode] = time.time()
       key_values[charcode] = 1
 
   def on_key_release(event):
     charcode = None
     if event.keycode in keycodes: charcode = keycodes[event.keycode]
     if charcode and charcode > 0 and charcode < 128:
-      key_values[charcode] = 0
+      def release_check():
+        if time.time() - keyrelease[event.keycode] > 0.099:
+          key_values[charcode] = 0
+      keyrelease[event.keycode] = time.time()
+      app.after(100, release_check)
 
   app.bind("<KeyPress>", on_key_press)
   app.bind("<KeyRelease>", on_key_release)
@@ -97,7 +103,7 @@ class ThreeSimEnv:
     lan.start(htmlpath, port, httpport)
     self.keyboard_buf = RawArray(c_uint8, 128)
     time.sleep(0.3)
-    self.browser_process = webbrowser.open(f"http://127.0.0.1:{httpport}")
+    # self.browser_process = webbrowser.open(f"http://127.0.0.1:{httpport}")
     self.ui_task = None
 
     # OpenAI Gym convenience fields
@@ -192,8 +198,11 @@ if __name__ == "__main__":
   env = TennisBallClawbotEnv()
   while env.running():
     env.reset()
-    for i in range(200):
-      action = [1]
-      next_obs, reward, term, _ = env.step(action)
-      print(next_obs)
-      env.render()
+    env.render()
+    # for i in range(200):
+    #   action = np.zeros((10,))
+    #   next_obs, reward, term, _ = env.step(action)
+    #   print(next_obs)
+    #   env.render()
+
+    time.sleep(10)

@@ -52,7 +52,7 @@ cors = aiohttp_cors.setup(app, defaults={
   )
 })
 
-async def data_handler(websocket):
+async def handle_websocket(websocket, path):
   h, w = frame_shape
   color_np = np.frombuffer(color_buf, np.uint8).reshape((h, w, 3))
   depth_np = np.frombuffer(depth_buf, np.uint16).reshape((h, w))
@@ -92,11 +92,6 @@ async def data_handler(websocket):
       print("Connection closed, closing.")
       _running.value = False
       sys.exit(1)
-
-async def handle_websocket(websocket, path):
-  # recv_task = main_loop.create_task(receiver(websocket))
-  send_task = main_loop.create_task(data_handler(websocket))
-  await asyncio.gather(send_task)
 
 async def request_handler(host, port):
   async with websockets.serve(handle_websocket, host, port):

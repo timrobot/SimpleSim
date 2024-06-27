@@ -2,6 +2,14 @@
 
 const STATE = { DISABLE_DEACTIVATION : 4 };
 
+class Joint {
+  constructor(joint, mate1, mate2) {
+    this.joint = joint;
+    this.mate1 = mate1;
+    this.mate2 = mate2;
+  }
+};
+
 class AmmoPhysics {
   constructor(clock, parameters={}) {
     this.bodies = []; // THREE.js mesh objects
@@ -51,7 +59,6 @@ class AmmoPhysics {
         I = mass / 12;
         r = params.radiusTop;
         h = params.height * 0.5;
-        l = params.height;
         this.p_.setValue(r, h, r);
         collisionShape = new Ammo.btCylinderShape(this.p_);
         break;
@@ -64,19 +71,12 @@ class AmmoPhysics {
         console.log(`${mesh.geometry.type} is not supported at this time.`);
         return null;
     }
-    collisionShape.setMargin(0.05);
+    collisionShape.setMargin(0.01);
     this.p_.setValue(0, 0, 0);
     collisionShape.calculateLocalInertia(mass, this.p_);
     const rigidbodyInfo = new Ammo.btRigidBodyConstructionInfo(mass, motionState, collisionShape, this.p_);
     const rigidbody = new Ammo.btRigidBody(rigidbodyInfo);
     rigidbody.setActivationState(STATE.DISABLE_DEACTIVATION);
-
-    if (options.friction) {
-      rigidbody.setFriction(options.friction);
-    }
-    if (options.rollingFriction) {
-      rigidbody.setRollingFriction(options.rollingFriction);
-    }
 
     this.world.addRigidBody(rigidbody, options.collideGroup, options.collideWith);
     mesh.userData.rigidbody = rigidbody;
@@ -91,9 +91,10 @@ class AmmoPhysics {
     return rigidbody;
   }
 
-  hinge(A, B) {
+  hinge(A, B, joint) {
     A = A || {};
     B = B || {};
+    joint = joint || new Joint(null, A, B);
 
     let bodyA = A.mesh || null;
     let pivotA = A.xyz || [0, 0, 0];
@@ -113,19 +114,21 @@ class AmmoPhysics {
         bodyA, bodyB, pivotA, pivotB, axisA, axisB, true
       );
       this.world.addConstraint(hingeJoint, false);
-      this.joints.push([hingeJoint, A, B]);
+      joint.joint = hingeJoint;
+      this.joints.push(joint);
       Ammo.destroy(pivotA);
       Ammo.destroy(axisA);
       Ammo.destroy(pivotB);
       Ammo.destroy(axisB);
-      return hingeJoint;
+      return joint;
     }
     return null;
   }
 
-  p2p(A, B) {
+  p2p(A, B, joint) {
     A = A || {};
     B = B || {};
+    joint = joint || new Joint(null, A, B);
 
     let bodyA = A.mesh || null;
     let pivotA = A.xyz || [0, 0, 0];
@@ -141,12 +144,13 @@ class AmmoPhysics {
         bodyA, bodyB, pivotA, pivotB
       );
       this.world.addConstraint(p2pJoint, false);
-      this.joints.push([p2pJoint, A, B]);
+      joint.joint = p2pJoint;
+      this.joints.push(joint);
       Ammo.destroy(pivotA);
       Ammo.destroy(pivotB);
-      return p2pJoint;
+      return joint;
     }
-    return p2pJoint;
+    return null;
   }
 
   get(mesh) {
@@ -202,7 +206,7 @@ class AmmoPhysics {
   reset() {
     const joints = this.joints;
     for (const joint of joints) {
-      this.world.removeConstraint(joint[0]);
+      this.world.removeConstraint(joint.joint);
     }
     this.joints = [];
 
@@ -225,12 +229,14 @@ class AmmoPhysics {
     }
 
     for (const joint of joints) {
-      if (Object.getPrototypeOf(joint[0]).constructor.name === "btHingeConstraint") {
-        this.hinge(joint[1], joint[2]);
-      } else if (Object.getPrototypeOf(joint[0]).constructor.name === "btPoint2PointConstraint") {
-        this.p2p(joint[1], joint[2]);
+      const joint_type = Object.getPrototypeOf(joint.joint).constructor.name;
+      Ammo.destroy(joint.joint);
+      joint.joint = null;
+      if (joint_type === "btHingeConstraint") {
+        this.hinge(joint.mate1, joint.mate2, joint);
+      } else if (joint_type === "btPoint2PointConstraint") {
+        this.p2p(joint.mate1, joint.mate2, joint);
       }
-      Ammo.destroy(joint[0]);
     }
   }
 
