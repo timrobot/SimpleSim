@@ -54,7 +54,7 @@ Some actions are left intentionally blank to reflect the VEX microcontroller's d
 | --- | ------ | ----------- | ----------- | ---- |
 | 0 | Angular velocity target of the left motor | -1 | 1 | rpm (rad/m) |
 | 1 | Torque applied on the arm | -1 | 1 | Torque (Nm) |
-| 2 | Torque applied on the claw (<i>pending</i>) | -1 | 1 | Torque (Nm) |
+| 2 | Torque applied on the claw | -1 | 1 | Torque (Nm) |
 | 3 | ❌ |  |  |  |
 | 4 | ❌ |  |  |  |
 | 5 | ❌ |  |  |  |
