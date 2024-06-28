@@ -82,6 +82,8 @@ A reward is given based on the distance the claw is from the ball, as well as th
 
 `reward = 1 - sum(ball.xyz - claw.xyz).sqrt() - abs(heading - angleto(claw, ball)) / PI`
 
+This is the default reward, however you may specify your own reward function as you like.
+
 ### Environmental Details
 Color and depth frames are shown on a window when `render()` gets called. This window also allows keyboard inputs to be queried, meaning that if you wanted to
 manually control the robot, you can call the `env.keys[keyname:str]` api. For example
@@ -110,3 +112,5 @@ if __name__ == "__main__":
     cv2.imshow("color", color)
     cv2.waitKey(1)
 ```
+
+Note that rendering the color and depth frames take a significant amount of time from the simulator, so it will cause step times to increase as well.

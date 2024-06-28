@@ -89,8 +89,7 @@
 
       // Setup lights
       const dirLight = new THREE.DirectionalLight();
-      dirLight.position.set(50, 50, 50);
-      // optional shadow stuff
+      dirLight.position.set(15, 50, -15);
       dirLight.castShadow = true;
       dirLight.shadow.camera.left = -100;
       dirLight.shadow.camera.right = 100;
@@ -100,12 +99,23 @@
       dirLight.shadow.camera.far = 100;
       scene.add(dirLight);
 
+      const dirLight2 = new THREE.DirectionalLight();
+      dirLight2.position.set(-15, 50, 15);
+      dirLight2.castShadow = true;
+      dirLight2.shadow.camera.left = -100;
+      dirLight2.shadow.camera.right = 100;
+      dirLight2.shadow.camera.bottom = -100;
+      dirLight2.shadow.camera.top = 100;
+      dirLight2.shadow.camera.near = 0.1;
+      dirLight2.shadow.camera.far = 100;
+      scene.add(dirLight2);
+
       const amLight = new THREE.AmbientLight();
       amLight.intensity = 0.1;
       scene.add(amLight);
 
       // Create websocket connection
-      const connection = new WSConnection(9999, 640, 360, 0.1, 60);
+      const connection = new WSConnection(9998, 640, 360, 0.1, 60);
 
       // Create controller for viewing
       const controller = new OrbitControls(camera, renderer.domElement);
@@ -118,7 +128,7 @@
       groundMesh.castShadow = true;
       groundMesh.receiveShadow = true;
       scene.add(groundMesh);
-      physx.add(groundMesh);
+      physx.add(groundMesh, {collideGroup: 1, collideWith: 2});
 
       const streamCamera = new THREE.PerspectiveCamera(75, 640 / 360, 0.1, 50);
       streamCamera.position.set(0, 1, -2);
@@ -127,11 +137,11 @@
       const chassisGeometry = new THREE.BoxGeometry(1, 0.1, 0.1);
       const chassisMaterial = new THREE.MeshLambertMaterial({color: 0xc0c0c0});
       const chassis = new THREE.Mesh(chassisGeometry, chassisMaterial);
-      chassis.position.set(0, 1, 0.1);
+      chassis.position.set(0, 1, 0);
       chassis.castShadow = true;
       chassis.receiveShadow = true;
       scene.add(chassis);
-      physx.add(chassis);
+      physx.add(chassis, {collideGroup: 2, collideWith: 1});
 
       const pendulumGeometry = new THREE.BoxGeometry(0.1, 0.55, 0.1);
       const pendulumMaterial = new THREE.MeshLambertMaterial({color: 0xff0000});
@@ -149,15 +159,15 @@
       pendulum.castShadow = true;
       pendulum.receiveShadow = true;
       scene.add(pendulum);
-      physx.add(pendulum, {mass: 1.0});
+      physx.add(pendulum, {mass: 1.0, collideGroup: 2, collideWith: 1});
 
       const pendulumJoint = physx.hinge({
         mesh: chassis,
-        xyz: [0, 0, -0.05],
-        axis: [0, 0, -1]
+        xyz: [0, 0, 0],
+        axis: [0, 0, 1]
       }, {
         mesh: pendulum,
-        xyz: [0, 0.25, 0.05],
+        xyz: [0, 0.25, 0],
         axis: [0, 0, 1]
       });
       
