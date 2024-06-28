@@ -24,8 +24,8 @@ from sim3d import TennisBallClawbotEnv
 
 if __name__ == "__main__":
   env = TennisBallClawbotEnv()
-
-  while True:
+  env.render()
+  while env.running():
     obs = env.reset()
     for step in range(200):
       action = [0] * 10
@@ -33,7 +33,6 @@ if __name__ == "__main__":
       action[1] = -0.5 # right
 
       new_obs, reward, term, info = env.step(motors)
-      env.render()
 ```
 
 ### Description
@@ -89,6 +88,6 @@ manually control the robot, you can call the `env.keys[keyname:str]` api. For ex
 
 ```python
 env.render()
-while True:
+while env.running():
   a_pressed = env.keys['a'] # 0 or 1
 ```

@@ -103,7 +103,7 @@ class ThreeSimEnv:
     lan.start(htmlpath, port, httpport)
     self.keyboard_buf = RawArray(c_uint8, 128)
     time.sleep(0.3)
-    self.browser_process = webbrowser.open(f"http://127.0.0.1:{httpport}")
+    # self.browser_process = webbrowser.open(f"http://127.0.0.1:{httpport}")
     self.ui_task = None
 
     # OpenAI Gym convenience fields
@@ -163,7 +163,8 @@ class ThreeSimEnv:
     else:
       return observation, info
   
-  def render(self):
+  def render(self, enable=True):
+    lan.render(enable)
     if not self.ui_task:
       while lan.color_buf is None:
         continue
@@ -196,11 +197,10 @@ class PendulumEnv(ThreeSimEnv):
 
 if __name__ == "__main__":
   env = TennisBallClawbotEnv()
+  # env.render()
   while env.running():
     env.reset()
-    env.render()
     for i in range(200):
       action = np.zeros((10,))
       next_obs, reward, term, _ = env.step(action)
       print(next_obs)
-      env.render()

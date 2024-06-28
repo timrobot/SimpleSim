@@ -73,6 +73,7 @@ class WSConnection {
     this.observation = [];
     this.reward = 0;
     this.terminal = false;
+    this.requires_render = false;
     // this.cmd = null;
 
     this.onreset = null;
@@ -93,6 +94,9 @@ class WSConnection {
       } else if (cmd.api === "act" && this.onstep) {
         this.onstep(cmd.action);
         this._update_callback();
+      } else if (cmd.api === "render") {
+        this.requires_render = cmd.value;
+        this.ws.send(JSON.stringify("success"));
       }
     };
 
@@ -114,9 +118,22 @@ class WSConnection {
 
   _update_callback() {
     if (this.ws_connected) {
-      if (this.colorURL && this.depthURL) {
-        const color = this.colorURL;
-        const depth = this.depthURL;
+      if (this.requires_render) {
+        if (this.colorURL && this.depthURL) {
+          const color = this.colorURL;
+          const depth = this.depthURL;
+          this.colorURL = null;
+          this.depthURL = null;
+          const info = JSON.stringify({
+            "obs": this.observation,
+            "rew": this.reward,
+            "term": this.terminal
+          });
+          this.ws.send(info + '$' + color + ',' + depth);
+        } else {
+          setTimeout(this._update_callback.bind(this), 5);
+        }
+      } else {
         this.colorURL = null;
         this.depthURL = null;
         const info = JSON.stringify({
@@ -124,9 +141,7 @@ class WSConnection {
           "rew": this.reward,
           "term": this.terminal
         });
-        this.ws.send(info + '$' + color + ',' + depth);
-      } else {
-        setTimeout(this._update_callback.bind(this), 8);
+        this.ws.send(info + '$');
       }
     }
   }
@@ -138,6 +153,8 @@ class WSConnection {
   }
 
   render(scene, offscreenCamera) {
+    if (!this.requires_render) return;
+
     // Render the scene to offscreen targets
     this.colorRenderer.render(scene, offscreenCamera);
 

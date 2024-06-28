@@ -67,24 +67,26 @@ async def handle_websocket(websocket, path):
         await websocket.send(json.dumps(cmd))
 
         data = await websocket.recv()
+        if cmd["api"] == "render": continue
         res, data = data.split('$')
 
         last_rx_time.acquire()
         last_rx_time.value = datetime.isoformat(datetime.now()).encode()
         last_rx_time.release()
 
-        data = data.split(',')
-        color = np.frombuffer(base64.b64decode(data[1]), np.uint8)
-        color = cv2.imdecode(color, cv2.IMREAD_UNCHANGED)
-        color = cv2.cvtColor(color, cv2.COLOR_RGB2BGR)
-        depth = np.frombuffer(base64.b64decode(data[3]), np.uint8)
-        depth = cv2.imdecode(depth, cv2.IMREAD_UNCHANGED)
-        D = depth.astype(np.float32)
-        D = (D[:,:,2] / 256 + D[:,:,1]) / 256 * (far - near) + near
-        D = np.where(D < 10.0, D, 0)
-        depth = (D * 1000).astype(np.uint16)
-        np.copyto(color_np, color)
-        np.copyto(depth_np, depth)
+        if len(data) > 0:
+          data = data.split(',')
+          color = np.frombuffer(base64.b64decode(data[1]), np.uint8)
+          color = cv2.imdecode(color, cv2.IMREAD_UNCHANGED)
+          color = cv2.cvtColor(color, cv2.COLOR_RGB2BGR)
+          depth = np.frombuffer(base64.b64decode(data[3]), np.uint8)
+          depth = cv2.imdecode(depth, cv2.IMREAD_UNCHANGED)
+          D = depth.astype(np.float32)
+          D = (D[:,:,2] / 256 + D[:,:,1]) / 256 * (far - near) + near
+          D = np.where(D < 10.0, D, 0)
+          depth = (D * 1000).astype(np.uint16)
+          np.copyto(color_np, color)
+          np.copyto(depth_np, depth)
 
         env_queue.put(json.loads(res))
 
@@ -207,6 +209,12 @@ def reset():
     "api": "reset"
   })
   return read()
+
+def render(enable=True):
+  cmd_queue.put({
+    "api": "render",
+    "value": enable
+  })
 
 def running():
   return _running.value

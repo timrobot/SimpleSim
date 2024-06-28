@@ -416,7 +416,6 @@
         let dtheta = pq_theta - heading.y;
         while (dtheta > Math.PI) dtheta -= 2 * Math.PI;
         while (dtheta < -Math.PI) dtheta += 2 * Math.PI;
-        pitch.setFromQuaternion(arm1.quaternion, 'YZX');
         if (Math.abs(distance) > in2m(2)) objectGrabbed = false; 
         if (clawAction > 0) {
           const degrees = dtheta * 180 / Math.PI;
@@ -451,19 +450,18 @@
           armAction = 0.5;
         }
 
-        physx.getTransform(chassis, p, q);
         v.set(0, 0, linearCoeff * -(leftAction + rightAction) / 2);
         v.applyQuaternion(q);
         physx.p_.setValue(v.x, v.y, v.z);
         physx.get(chassis).setLinearVelocity(physx.p_);
         physx.p_.setValue(0, angularCoeff * (rightAction - leftAction), 0);
         physx.get(chassis).setAngularVelocity(physx.p_);
-
+        chassis_arm2.joint.enableAngularMotor(true, armAction * 1.5, 3);
         const dt = physx.step();
+        
         physx.getTransform(chassis, p, q);
         chassis.position.set(p.x, p.y - fullChassisHeight / 2 + in2m(2.25), p.z);
         chassis.quaternion.set(q.x, q.y, q.z, q.w);
-        chassis_arm2.joint.enableAngularMotor(true, armAction * 1.5, 3);
         
         if (objectGrabbed) {
           clawPosition.set(0, 0, -in2m(3.7));
