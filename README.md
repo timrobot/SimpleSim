@@ -32,7 +32,7 @@ if __name__ == "__main__":
       action[0] = 0.5 # left
       action[1] = -0.5 # right
 
-      new_obs, reward, term, info = env.step(motors)
+      new_obs, reward, term, info = env.step(action)
 ```
 
 ### Description
@@ -90,4 +90,23 @@ manually control the robot, you can call the `env.keys[keyname:str]` api. For ex
 env.render()
 while env.running():
   a_pressed = env.keys['a'] # 0 or 1
+```
+
+To access these color and depth frames, say, for computer vision and SLAM, you can use the 4th output from the `step()` function, as well as enable the info flag in `reset(extra_info=True)`:
+
+```python
+import cv2
+from sim3d import TennisBallClawbotEnv
+
+if __name__ == "__main__":
+  env = TennisBallClawbotEnv()
+  env.render()
+  obs, info = env.reset(extra_info=True)
+  while env.running():
+    obs, reward, term, info = env.step([0] * 10)
+    color = info["color"]
+    depth = info["depth"]
+
+    cv2.imshow("color", color)
+    cv2.waitKey(1)
 ```
