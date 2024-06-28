@@ -94,7 +94,7 @@ def _ctk_interface(key_values, color_buf, depth_buf, color2_buf):
   lan.stop()
 
 class ThreeSimEnv:
-  def __init__(self, htmlpath=None, observation_space=None, action_space=None, port=9999, httpport=8765):
+  def __init__(self, htmlpath=None, observation_space=None, action_space=None, port=9999, httpport=8765, autolaunch=True):
     """Remote Interface showing the data coming in from the robot
 
     Args:
@@ -103,7 +103,8 @@ class ThreeSimEnv:
     lan.start(htmlpath, port, httpport)
     self.keyboard_buf = RawArray(c_uint8, 128)
     time.sleep(0.3)
-    # self.browser_process = webbrowser.open(f"http://127.0.0.1:{httpport}")
+    if autolaunch:
+      self.browser_process = webbrowser.open(f"http://127.0.0.1:{httpport}")
     self.ui_task = None
 
     # OpenAI Gym convenience fields
