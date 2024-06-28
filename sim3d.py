@@ -103,7 +103,7 @@ class ThreeSimEnv:
     lan.start(htmlpath, port, httpport)
     self.keyboard_buf = RawArray(c_uint8, 128)
     time.sleep(0.3)
-    # self.browser_process = webbrowser.open(f"http://127.0.0.1:{httpport}")
+    self.browser_process = webbrowser.open(f"http://127.0.0.1:{httpport}")
     self.ui_task = None
 
     # OpenAI Gym convenience fields
@@ -199,10 +199,8 @@ if __name__ == "__main__":
   while env.running():
     env.reset()
     env.render()
-    # for i in range(200):
-    #   action = np.zeros((10,))
-    #   next_obs, reward, term, _ = env.step(action)
-    #   print(next_obs)
-    #   env.render()
-
-    time.sleep(10)
+    for i in range(200):
+      action = np.zeros((10,))
+      next_obs, reward, term, _ = env.step(action)
+      print(next_obs)
+      env.render()

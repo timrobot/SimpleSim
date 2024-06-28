@@ -1,10 +1,17 @@
 # SimpleSim
 This environment is a simple simulation engine to view and control a standard VEX Clawbot and move it via motor torques. This is in <b>BETA</b> until a package can be created and some features added, however feel free to test as you like.
 
-#### Installation
+#### Quickstart
+To install the needed libraries, you can do a standard pip install.
 
 ```bash
 python3 -m pip install -r requirements.txt
+```
+
+Run an example program to control the robot. You can use W(↑) A(←) S(↓) D(→) to control the robot navigation and P(arm ↑) L(arm ↓) and O(claw →←) K(claw ←→) to control the arm and claws.
+
+```bash
+python3 main.py
 ```
 
 ### Example

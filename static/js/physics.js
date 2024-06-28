@@ -35,15 +35,15 @@ class AmmoPhysics {
     options = options || {};
     const mass = options.mass === undefined ? 0 : options.mass;
 
-    const geometry_type = options.geometry || mesh.geometry.type;
-    const params = options.parameters || mesh.geometry.parameters;
     this.T_.setIdentity();
     this.p_.setValue(mesh.position.x, mesh.position.y, mesh.position.z);
     this.T_.setOrigin(this.p_);
     this.q_.setValue(mesh.quaternion.x, mesh.quaternion.y, mesh.quaternion.z, mesh.quaternion.w);
     this.T_.setRotation(this.q_);
-
     const motionState = new Ammo.btDefaultMotionState(this.T_);
+
+    const geometry_type = options.geometry || mesh.geometry.type;
+    const params = options.parameters || mesh.geometry.parameters;
     let collisionShape;
     let I, w, h, d, r, l;
     switch (geometry_type) {
@@ -74,6 +74,7 @@ class AmmoPhysics {
     collisionShape.setMargin(0.01);
     this.p_.setValue(0, 0, 0);
     collisionShape.calculateLocalInertia(mass, this.p_);
+
     const rigidbodyInfo = new Ammo.btRigidBodyConstructionInfo(mass, motionState, collisionShape, this.p_);
     const rigidbody = new Ammo.btRigidBody(rigidbodyInfo);
     rigidbody.setActivationState(STATE.DISABLE_DEACTIVATION);
@@ -81,12 +82,10 @@ class AmmoPhysics {
     this.world.addRigidBody(rigidbody, options.collideGroup, options.collideWith);
     mesh.userData.rigidbody = rigidbody;
     mesh.userData.options = options;
-    if (options.requires_sync === false) {
-    } else {
+    if (options.requires_sync !== false) {
       this.bodies.push(mesh);
     }
 
-    // clean up
     Ammo.destroy(rigidbodyInfo);
     return rigidbody;
   }
@@ -169,6 +168,21 @@ class AmmoPhysics {
     }
   }
 
+  syncTransform(mesh) {
+    this.T_.setIdentity();
+    this.p_.setValue(mesh.position.x, mesh.position.y, mesh.position.z);
+    this.T_.setOrigin(this.p_);
+    this.q_.setValue(mesh.quaternion.x, mesh.quaternion.y, mesh.quaternion.z, mesh.quaternion.w);
+    this.T_.setRotation(this.q_);
+    mesh.userData.rigidbody.setWorldTransform(this.T_);
+    // if (mesh.userData.rigidbody.isKinematicObject()) {
+    const motionState = mesh.userData.rigidbody.getMotionState();
+    if (motionState && mesh.userData.options.mass) {
+      motionState.setWorldTransform(this.T_);
+    }
+    // }
+  }
+
   step(dt) {
     const deltaTime = dt || this.clock.getDelta();
 
@@ -211,18 +225,7 @@ class AmmoPhysics {
     this.joints = [];
 
     for (const body of this.bodies) {
-      this.T_.setIdentity();
-      this.p_.setValue(body.position.x, body.position.y, body.position.z);
-      this.T_.setOrigin(this.p_);
-      this.q_.setValue(body.quaternion.x, body.quaternion.y, body.quaternion.z, body.quaternion.w);
-      this.T_.setRotation(this.q_);
-      body.userData.rigidbody.setWorldTransform(this.T_);
-      if (body.userData.rigidbody.isKinematicObject()) {
-        const motionState = body.getMotionState();
-        if (motionState) {
-          motionState.setWorldTransform(this.T_);
-        }
-      }
+      this.syncTransform(body);
       this.p_.setValue(0, 0, 0);
       body.userData.rigidbody.setLinearVelocity(this.p_);
       body.userData.rigidbody.setAngularVelocity(this.p_);
