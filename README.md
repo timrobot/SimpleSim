@@ -1,10 +1,12 @@
 # SimpleSim
-This environment is a simple simulation engine to view and control a standard VEX Clawbot and move it via motor torques. This is in <b>BETA</b> until a package can be created and some features added, however feel free to test as you like.
+This environment is a simple simulation engine to view and control a standard VEX Clawbot and move it via motor torques. This is in <b>BETA</b> and must be run from the repository directory until a package can be created and some features added, however feel free to test as you like.
 
 #### Quickstart
 To install the needed libraries, you can do a standard pip install.
 
 ```bash
+git clone https://github.com/timrobot/SimpleSim.git
+cd SimpleSim
 python3 -m pip install -r requirements.txt
 ```
 
