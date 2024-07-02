@@ -30,7 +30,7 @@ if __name__ == "__main__":
     for step in range(200):
       action = [0] * 10
       action[0] = 0.5 # left
-      action[1] = -0.5 # right
+      action[9] = -0.5 # right
 
       new_obs, reward, term, info = env.step(action)
 ```

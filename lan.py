@@ -78,7 +78,6 @@ async def handle_websocket(websocket, path):
           data = data.split(',')
           color = np.frombuffer(base64.b64decode(data[1]), np.uint8)
           color = cv2.imdecode(color, cv2.IMREAD_UNCHANGED)
-          color = cv2.cvtColor(color, cv2.COLOR_RGB2BGR)
           depth = np.frombuffer(base64.b64decode(data[3]), np.uint8)
           depth = cv2.imdecode(depth, cv2.IMREAD_UNCHANGED)
           D = depth.astype(np.float32)
