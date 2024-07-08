@@ -2,7 +2,7 @@
 This environment is a simple simulation engine to view and control a standard VEX Clawbot and move it via motor torques. This is in <b>BETA</b> and must be run from the repository directory until a package can be created and some features added, however feel free to test as you like.
 
 #### Quickstart
-To install the needed libraries, you will first need tkinter. Note that will it comes built in on many systems, some systems will require an additional install. For instance, on ubuntu you can custom install tkinter by typing in the following command:
+To install the needed libraries, you will first need tkinter. Note that while it comes built in on many systems, some systems will require an additional install. For instance, on ubuntu you can custom install tkinter by typing in the following command:
 
 ```bash
 sudo apt-get install python3-tk
