@@ -125,7 +125,7 @@ def _pygame_interface(key_values, color_buf, depth_buf, color2_buf,
     for event in pygame.event.get():
       if event.type == pygame.QUIT:
         pygame.quit()
-        running = False
+        running = True
         lan.stop()
         sys.exit(0)
       elif event.type == pygame.KEYDOWN:
@@ -237,7 +237,7 @@ class ThreeSimEnv:
     info["time"] = self._steps * .1
     return observation, reward, terminal, info
 
-  def reset(self, extra_info=False):
+  def reset(self, extra_info=True):
     """
     Convenience function to act like OpenAI Gym reset()
     """
@@ -266,7 +266,7 @@ class ThreeSimEnv:
       self.ui_task.start()
   
 class TennisBallClawbotEnv(ThreeSimEnv):
-  def __init__(self, port=9999, httpport=8765, autolaunch=False):
+  def __init__(self, port=9999, httpport=8765, autolaunch=True):
     observation_space = namedtuple('Box', ['high', 'low', 'shape'])
     observation_space.shape = (10,)
     observation_space.low = [-np.inf] * observation_space.shape[0]
@@ -278,7 +278,7 @@ class TennisBallClawbotEnv(ThreeSimEnv):
     super(TennisBallClawbotEnv, self).__init__('./env-tennis-ball-clawbot.html', observation_space, action_space, port, httpport, autolaunch)
   
 class PendulumEnv(ThreeSimEnv):
-  def __init__(self, port=9998, httpport=8764, autolaunch=False):
+  def __init__(self, port=9998, httpport=8764, autolaunch=True):
     observation_space = namedtuple('Box', ['high', 'low', 'shape'])
     observation_space.shape = (3,)
     observation_space.low = [-np.inf] * observation_space.shape[0]
