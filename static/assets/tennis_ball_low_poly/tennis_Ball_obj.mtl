@@ -1,0 +1,16 @@
+# Blender 3.1.0 MTL File: 'None'
+# www.blender.org
+
+newmtl tennis_Ball
+Ns 250.000000
+Ka 1.000000 1.000000 1.000000
+Kd 1.000000 1.000000 1.000000
+Ks 0.000500 0.000500 0.000500
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 1
+map_Kd  texture/tennis ball_DefaultMaterial_BaseColor.png
+map_Ns  texture/tennis ball_DefaultMaterial_Roughness.png
+map_refl  texture/tennis ball_DefaultMaterial_Metallic.png
+map_Bump  -bm 1.000000 texture/tennis ball_DefaultMaterial_Normal.png
