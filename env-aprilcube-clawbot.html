@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aprilcube</title>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.161.0/build/three.module.js",
+          "three/examples/jsm/": "https://unpkg.com/three@0.161.0/examples/jsm/",
+          "three/addons/": "https://unpkg.com/three@0.161.0/examples/jsm/"
+        }
+      }
+    </script>
+    <script src="https://unpkg.com/ammo.js@0.0.10/ammo.js"></script>
+    <script type="module" src="/static/js/physics.js"></script>
+    <script type="module" src="/static/js/lan.js"></script>
+
+    <style type="text/css">
+      * {
+        margin: 0;
+        padding: 0;
+      }
+    </style>
+
+
+<script id="post-vert" type="x-shader/x-vertex">
+  varying vec2 vUv;
+
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+</script>
+<script id="post-frag" type="x-shader/x-fragment">
+  #include <packing>
+
+  varying vec2 vUv;
+  uniform sampler2D tDiffuse;
+  uniform sampler2D tDepth;
+  uniform float cameraNear;
+  uniform float cameraFar;
+
+
+  float readDepth( sampler2D depthSampler, vec2 coord ) {
+    float fragCoordZ = texture2D( depthSampler, coord ).x;
+    float viewZ = perspectiveDepthToViewZ( fragCoordZ, cameraNear, cameraFar );
+    return viewZToOrthographicDepth( viewZ, cameraNear, cameraFar );
+  }
+
+  void main() {
+    //vec3 diffuse = texture2D( tDiffuse, vUv ).rgb;
+    float depth = readDepth( tDepth, vUv );
+    float mpost250;
+    float mm250 = modf(depth * 256.0f, mpost250);
+
+    gl_FragColor.rgb = vec3( mm250, mpost250 / 256.0f, 0 );
+    //gl_FragColor.a = 1.0;
+  }
+</script>
+
+  </head>
+  <body>
+    <script type="module">
+      import * as THREE from 'three';
+      import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+      import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+      import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+      import { MTLLoader } from 'three/addons/loaders/MTLLoader.js';
+
+      import AmmoPhysics from '/static/js/physics.js';
+      import WSConnection from '/static/js/lan.js';
+      import { Field } from '/static/js/field.js';
+
+      // Create a scene + physics
+      const scene = new THREE.Scene();
+      const physx = new AmmoPhysics(new THREE.Clock(), { angularDamping: 0.99 });
+      const colGroup = {
+        env: 1,
+        robot: 2,
+        effector: 4,
+        object: 8,
+        arm1: 16,
+        arm2: 32
+      };
+      const everyCollideGroup = 0xFF;
+
+      // Create a camera
+      const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 50);
+      camera.position.set(0, 3, 5);
+      camera.lookAt(0, 0, 0);
+
+      // Create a renderer
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.shadowMap.enabled = true;
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.setClearColor(0x80c0e0);
+      document.body.appendChild(renderer.domElement);
+
+      // Setup lights
+      const dirLight = new THREE.DirectionalLight();
+      dirLight.position.set(15, 50, -15);
+      dirLight.castShadow = true;
+      dirLight.shadow.camera.left = -100;
+      dirLight.shadow.camera.right = 100;
+      dirLight.shadow.camera.bottom = -100;
+      dirLight.shadow.camera.top = 100;
+      dirLight.shadow.camera.near = 0.1;
+      dirLight.shadow.camera.far = 100;
+      scene.add(dirLight);
+
+      const dirLight2 = new THREE.DirectionalLight();
+      dirLight2.position.set(-15, 50, 15);
+      dirLight2.castShadow = true;
+      dirLight2.shadow.camera.left = -100;
+      dirLight2.shadow.camera.right = 100;
+      dirLight2.shadow.camera.bottom = -100;
+      dirLight2.shadow.camera.top = 100;
+      dirLight2.shadow.camera.near = 0.1;
+      dirLight2.shadow.camera.far = 100;
+      scene.add(dirLight2);
+
+      const amLight = new THREE.AmbientLight();
+      amLight.intensity = 0.5;
+      scene.add(amLight);
+
+      // Create controller for viewing
+      const controller = new OrbitControls(camera, renderer.domElement);
+
+      const field = new Field();
+      field.initMeshes(physx);
+      scene.add(field);
+
+      //// ROBOT
+      const in2m = (x) => x * 0.0254;
+      const loader = new GLTFLoader();
+      const loaded = { chassis: false, clawbase: false, claws: false };
+      const fullChassisHeight = in2m(2.25 + .5 + 7.5); // including wheel height
+      const metalMaterial = new THREE.MeshLambertMaterial({color: 0xCFDBE5});
+
+      const chassis = new THREE.Group();
+      chassis.position.set(0, fullChassisHeight / 2, 0);
+      chassis.castShadow = true;
+      chassis.receiveShadow = true;
+      scene.add(chassis);
+      physx.add(chassis, {
+        mass: 5.0,
+        collideGroup: colGroup.robot,
+        collideWith: colGroup.env | colGroup.object,
+        geometry: "BoxGeometry",
+        parameters: { width: in2m(10), height: fullChassisHeight, depth: in2m(10) }
+      });
+
+      loader.load('/static/assets/Chassis.gltf', (root) => {
+        root.scene.position.set(0, -fullChassisHeight / 2 + in2m(2.25), 0);
+        chassis.add(root.scene);
+        loaded.chassis = true;
+      });
+
+      const wheelAxisX = in2m(5 + .5);
+      const wheelAxisY = -fullChassisHeight / 2 + in2m(2);
+      const wheelAxisZ = in2m(4.25);
+      const wheelRadius = in2m(2);
+      const wheelWidth = in2m(0.88);
+      const wheelGeometry = new THREE.CylinderGeometry(wheelRadius, wheelRadius, wheelWidth);
+      const wheelMaterial = new THREE.MeshLambertMaterial({color: 0x00aa00});
+      const wheelPositions = [
+        [-wheelAxisX, wheelAxisY,-wheelAxisZ],
+        [ wheelAxisX, wheelAxisY,-wheelAxisZ],
+        [-wheelAxisX, wheelAxisY, wheelAxisZ],
+        [ wheelAxisX, wheelAxisY, wheelAxisZ]
+      ];
+      for (let i = 0; i < 4; i++) {
+        const wheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
+        wheel.castShadow = true;
+        wheel.receiveShadow = true;
+        wheel.rotateZ(Math.PI / 2);
+        wheel.position.set(...wheelPositions[i]);
+        chassis.add(wheel);
+      }
+
+      const armGeometry = new THREE.BoxGeometry(in2m(1), in2m(0.5), in2m(12.5));
+      const arm1 = new THREE.Mesh(armGeometry, metalMaterial);
+      arm1.castShadow = true;
+      arm1.receiveShadow = true;
+      arm1.position.set(0, fullChassisHeight - in2m(.5), in2m(-1));
+      scene.add(arm1);
+      physx.add(arm1, {
+        mass: 0.05,
+        collideGroup: colGroup.arm1,
+        collideWith: colGroup.env | colGroup.arm2
+      });
+      const arm2 = new THREE.Mesh(armGeometry, metalMaterial);
+      arm2.castShadow = true;
+      arm2.receiveShadow = true;
+      arm2.position.set(0, fullChassisHeight - in2m(2.5), in2m(-1));
+      scene.add(arm2);
+      physx.add(arm2, {
+        mass: 0.05,
+        collideGroup: colGroup.arm2,
+        collideWith: colGroup.env | colGroup.arm1
+      });
+
+      const clawBase = new THREE.Group();
+      clawBase.castShadow = true;
+      clawBase.receiveShadow = true;
+      clawBase.position.set(0, fullChassisHeight - in2m(1.5), in2m(-7 - (3.325 / 2 - .325)));
+      scene.add(clawBase);
+      physx.add(clawBase, {
+        mass: 0.1,
+        collideGroup: colGroup.effector,
+        collideWith: colGroup.env | colGroup.object,
+        geometry: "BoxGeometry",
+        parameters: { width: in2m(4), height: in2m(2.65), depth: in2m(3.325) }
+      });
+      loader.load('/static/assets/ClawBase.gltf', (root) => {
+        root.scene.position.set(0, 0, in2m(0.8375));
+        clawBase.add(root.scene);
+        loaded.clawbase = true;
+      });
+
+      const chassis_arm1 = physx.hinge({
+        mesh: chassis,
+        xyz: [0, fullChassisHeight / 2 - in2m(.5), in2m(4.5)],
+        axis: [1, 0, 0]
+      }, {
+        mesh: arm1,
+        xyz: [0, 0, in2m(5.5)],
+        axis: [1, 0, 0]
+      });
+      const arm1_effector = physx.hinge({
+        mesh: arm1,
+        xyz: [0, 0, in2m(-6)],
+        axis: [1, 0, 0]
+      }, {
+        mesh: clawBase,
+        xyz: [0, in2m(1), in2m(3.325 / 2 - .325)],
+        axis: [1, 0, 0]
+      });
+      const chassis_arm2 = physx.hinge({
+        mesh: chassis,
+        xyz: [0, fullChassisHeight / 2 - in2m(2.5), in2m(4.5)],
+        axis: [1, 0, 0]
+      }, {
+        mesh: arm2,
+        xyz: [0, 0, in2m(5.5)],
+        axis: [1, 0, 0]
+      });
+      const arm2_effector = physx.hinge({
+        mesh: arm2,
+        xyz: [0, 0, in2m(-6)],
+        axis: [1, 0, 0]
+      }, {
+        mesh: clawBase,
+        xyz: [0, in2m(-1), in2m(3.325 / 2 - .325)],
+        axis: [1, 0, 0]
+      });
+
+      const leftClaw = new THREE.Group();
+      leftClaw.position.set(in2m(-1.75), 0, in2m(-.4125));
+      clawBase.add(leftClaw);
+      const rightClaw = new THREE.Group();
+      rightClaw.position.set(in2m(1.75), 0, in2m(-.4125));
+      clawBase.add(rightClaw);
+      loader.load('/static/assets/Claw.gltf', (root) => {
+        root.scene.position.set(in2m(.136), 0, -in2m(.99));
+        rightClaw.add(root.scene);
+        const clone = root.scene.clone();
+        clone.position.set(-in2m(.136), 0, -in2m(.99));
+        clone.rotateZ(Math.PI);
+        leftClaw.add(clone);
+        loaded.claws = true;
+      });
+
+      const robotCamera = new THREE.PerspectiveCamera(75, 640 / 360, 0.1, 50);
+      const cameraGeometry = new THREE.BoxGeometry(in2m(3.7), in2m(.75), in2m(.8));
+      const cameraMesh = new THREE.Mesh(cameraGeometry, metalMaterial);
+      cameraMesh.position.set(0, in2m(2.5), in2m(5.5));
+      cameraMesh.add(robotCamera);
+      robotCamera.lookAt(0, in2m(2.5), -1); // look forward
+      arm1.add(cameraMesh);
+
+      // load in a single cube with apriltags on it
+      const textureLoader = new THREE.TextureLoader();
+      textureLoader.crossOrigin = 'anonymous';
+
+      function loadTexture(path) {
+        const filepath = `./static/assets/${path}`;
+        const texture = textureLoader.load(filepath);
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.minFilter = THREE.NearestFilter;
+        texture.magFilter = THREE.NearestFilter;
+        return texture;
+      }
+
+      const aprilcubeGeometry = new THREE.BoxGeometry(in2m(2.56), in2m(2.56), in2m(2.56));
+      const tag12Material = new THREE.MeshLambertMaterial({
+        map: loadTexture(`tag16h5_00012.png`)
+      });
+      const tag13Material = new THREE.MeshLambertMaterial({
+        map: loadTexture(`tag16h5_00013.png`)
+      });
+      const tag14Material = new THREE.MeshLambertMaterial({
+        map: loadTexture(`tag16h5_00014.png`)
+      });
+      // right left top bottom front back
+      const aprilcubeMaterial = [
+        tag12Material,
+        tag12Material,
+        tag13Material,
+        tag13Material,
+        tag14Material,
+        tag14Material
+      ];
+      const aprilcubeMesh = new THREE.Mesh(aprilcubeGeometry, aprilcubeMaterial);
+      scene.add(aprilcubeMesh);
+      physx.add(aprilcubeMesh, {
+        mass: 0.5,
+        collideGroup: colGroup.object,
+        collideWith: colGroup.env | colGroup.effector
+      });
+      physx.get(aprilcubeMesh).setFriction(2);
+      physx.get(aprilcubeMesh).setRollingFriction(5);
+
+      //// Animation loop
+      const p = new THREE.Vector3(0, 0, 0);
+      const q = new THREE.Quaternion(0, 0, 0, 1);
+      const v = new THREE.Vector3(0, 0, 0);
+      const heading = new THREE.Euler();
+      const pitch = new THREE.Euler();
+      const rpm = 100;
+      const omega = rpm * 2 * Math.PI / 60;
+      const meters_psec = omega * in2m(2);
+      const linearCoeff = meters_psec;
+      const angularCoeff = meters_psec / in2m(10);
+      let clawAngle = 0; // negative values = more open
+      let objectGrabbed = false;
+      let connection;
+
+      function calcReward() {
+        heading.setFromQuaternion(chassis.quaternion, 'YZX');
+        const clawPosition = new THREE.Vector3(0, 0, -in2m(3.7));
+        clawPosition.applyQuaternion(clawBase.quaternion);
+        clawPosition.add(clawBase.position);
+        const distance = clawPosition.distanceTo(aprilcubeMesh.position);
+        const pq_theta = Math.atan2(clawBase.position.x - aprilcubeMesh.position.x, clawBase.position.z - aprilcubeMesh.position.z);
+        let dtheta = pq_theta - heading.y;
+        while (dtheta > Math.PI) dtheta -= 2 * Math.PI;
+        while (dtheta < -Math.PI) dtheta += 2 * Math.PI;
+        pitch.setFromQuaternion(arm1.quaternion, 'YZX');
+        const reward = 1 - distance - Math.abs(dtheta) / Math.PI;
+
+        connection.setObservationReward([
+          chassis.position.x,
+          -chassis.position.z,
+          heading.y,
+          pitch.x,
+          physx.get(arm1).getAngularVelocity().x(),
+          objectGrabbed ? 1 : 0
+        ], reward);
+        connection.render(scene, robotCamera);
+      }
+
+      function onreset() {
+        chassis.position.set(
+          Math.random() * in2m(72) - in2m(36),
+          fullChassisHeight / 2,
+          Math.random() * in2m(72) - in2m(36));
+        p.set(0, fullChassisHeight / 2 - in2m(.5), in2m(-1));
+        p.applyQuaternion(chassis.quaternion);
+        p.add(chassis.position);
+        arm1.position.set(p.x, p.y, p.z);
+        p.set(0, fullChassisHeight / 2 - in2m(2.5), in2m(-1));
+        p.applyQuaternion(chassis.quaternion);
+        p.add(chassis.position);
+        arm2.position.set(p.x, p.y, p.z);
+        p.set(0, fullChassisHeight / 2 - in2m(1.5), in2m(-7 - (3.325 / 2 - .325)));
+        p.applyQuaternion(chassis.quaternion);
+        p.add(chassis.position);
+        clawBase.position.set(p.x, p.y, p.z);
+        clawAngle = 0;
+
+        aprilcubeMesh.position.set(
+          Math.random() * in2m(140) - in2m(70),
+          in2m(1.28),
+          Math.random() * in2m(140) - in2m(70));
+        console.log("Reset the world, new cube position:", aprilcubeMesh.position);
+        objectGrabbed = false;
+
+        physx.reset();
+        calcReward();
+      };
+
+      function onstep(action) {
+        let leftAction = action[0];
+        let rightAction = -action[9];
+        let armAction = action[1];
+        let clawAction = action[2];
+
+        // we will have to do "friction" manually
+        heading.setFromQuaternion(chassis.quaternion, 'YZX');
+        const clawPosition = new THREE.Vector3(0, 0, -in2m(3.7));
+        clawPosition.applyQuaternion(clawBase.quaternion);
+        clawPosition.add(clawBase.position);
+        const distance = clawPosition.distanceTo(aprilcubeMesh.position);
+        const pq_theta = Math.atan2(clawBase.position.x - aprilcubeMesh.position.x, clawBase.position.z - aprilcubeMesh.position.z);
+        let dtheta = pq_theta - heading.y;
+        while (dtheta > Math.PI) dtheta -= 2 * Math.PI;
+        while (dtheta < -Math.PI) dtheta += 2 * Math.PI;
+        if (Math.abs(distance) > in2m(2)) objectGrabbed = false; 
+        if (clawAction > 0) {
+          const degrees = dtheta * 180 / Math.PI;
+          if (distance < in2m(1.6) &&
+              Math.abs(degrees) < Math.abs(clawAngle) &&
+              Math.abs(degrees) > (Math.abs(clawAngle) - 20)) {
+            objectGrabbed = true;
+          }
+        } else if (clawAction <= 0) {
+          objectGrabbed = false; // make it simple
+        }
+
+        clawAngle = Math.max(-60, Math.min(0, clawAngle + clawAction * 10));
+        if (objectGrabbed) {
+          clawAngle = Math.min(clawAngle, -10.05);
+          physx.get(aprilcubeMesh).setCollisionFlags(2);
+        } else {
+          physx.get(aprilcubeMesh).setCollisionFlags(0);
+        }
+        
+        const radians = clawAngle * Math.PI / 180;
+        leftClaw.rotation.set(0, -radians, 0);
+        rightClaw.rotation.set(0, radians, 0);
+
+        pitch.setFromQuaternion(arm1.quaternion, 'YZX');
+        if (pitch.x <= -0.7 && armAction < 0) {
+          armAction = 0;
+        } else if (pitch.x >= 0.6 && armAction > 0.1) {
+          armAction = 0.1;
+        } else if (pitch.x >= 0.55 && armAction > 0.5) {
+          armAction = 0.5;
+        }
+        
+        physx.getTransform(chassis, p, q);
+        v.set(0, 0, linearCoeff * -(leftAction + rightAction) / 2);
+        v.applyQuaternion(q);
+        physx.p_.setValue(v.x, v.y, v.z);
+        physx.get(chassis).setLinearVelocity(physx.p_);
+        physx.p_.setValue(0, angularCoeff * (rightAction - leftAction), 0);
+        physx.get(chassis).setAngularVelocity(physx.p_);
+        chassis_arm2.joint.enableAngularMotor(true, armAction * 1.5, 3);
+        const dt = physx.step();
+
+        if (objectGrabbed) {
+          clawPosition.set(0, 0, -in2m(3.7));
+          clawPosition.applyQuaternion(clawBase.quaternion);
+          clawPosition.add(clawBase.position);
+          aprilcubeMesh.position.set(clawPosition.x, clawPosition.y, clawPosition.z);
+          physx.syncTransform(aprilcubeMesh);
+        }
+        calcReward();
+      };
+
+      function render() {
+        renderer.render(scene, camera);
+      }
+
+      window.addEventListener('resize', () => {
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+        camera.aspect = width / height;
+        camera.updateProjectionMatrix();
+        renderer.setSize(width, height);
+      });
+
+      function waitUntilLoaded() {
+        if (loaded.chassis && loaded.clawbase && loaded.claws) {
+          connection = new WSConnection(9999, 640, 360, 0.1, 60);
+          connection.onreset = onreset;
+          connection.onstep = onstep;
+          renderer.setAnimationLoop(render);
+        } else {
+          setTimeout(waitUntilLoaded.bind(this), 500);
+        }
+      }
+      waitUntilLoaded();
+
+    </script>
+  </body>
+</html>

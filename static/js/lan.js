@@ -10,7 +10,7 @@ class WSConnection {
 
     this.colorCanvas = new OffscreenCanvas(width, height);
     const colorContext = this.colorCanvas.getContext('webgl2', { antialias: true, alpha: false });
-    this.colorRenderer = new THREE.WebGLRenderer({canvas: this.colorCanvas, context: colorContext});
+    this.colorRenderer = new THREE.WebGLRenderer({canvas: this.colorCanvas, context: colorContext, antialias: true});
     this.colorRenderer.shadowMap.enabled = true;
     this.colorRenderer.setPixelRatio(1.0);
     this.colorRenderer.setClearColor(0x80c0e0);

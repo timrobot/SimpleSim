@@ -23,7 +23,7 @@ python3 main.py
 ```
 
 ### Example
-You will notice that the interface to the simulation engine is very similar to Gym's interface, for good reason. It's quite simple to read, and easy to get up and running.
+You will notice that the interface to the simulation engine is very similar to Gym's interface, for good reason. It's quite simple to read, and easy to get up and running. For example, to import the tennis ball clawbot environment:
 
 ```python
 from sim3d import TennisBallClawbotEnv
@@ -42,6 +42,8 @@ if __name__ == "__main__":
 ```
 
 ### Description
+
+#### Tennis Ball Clawbot
 A ball is positioned randomly inside of a standard 144"x144" field. The goal of the robot is to navigate to the position of the ball such that the ball is at the center of the claw. This environment is made with Three.js using Ammo/Bullet physics. It runs on Windows/Mac/Linux and does not require a GPU.
 
 |  |  |
@@ -51,6 +53,15 @@ A ball is positioned randomly inside of a standard 144"x144" field. The goal of 
 | Observation High | [inf inf inf inf inf inf inf inf inf inf] |
 | Observation Low | [-inf -inf -inf -inf -inf -inf -inf -inf -inf -inf] |
 | Import | `from sim3d import TennisBallClawbotEnv` |
+
+#### Aprilcube Clawbot
+|  |  |
+| -- | -- |
+| Action Space | Box(-1.0, 1.0, (10,), float32) |
+| Observation Shape | (6,) |
+| Observation High | [inf inf inf inf inf inf] |
+| Observation Low | [-inf -inf -inf -inf -inf -inf] |
+| Import | `from sim3d import AprilcubeClawbotEnv` |
 
 ### Action Space
 Some actions are left intentionally blank to reflect the VEX microcontroller's disconnected ports.
@@ -70,6 +81,7 @@ Some actions are left intentionally blank to reflect the VEX microcontroller's d
 
 ### Observation Space
 
+#### Tennis Ball Clawbot
 | Num | Action | Min | Max | Unit |
 | --- | ------ | --- | --- | ---- |
 | 0 | Chassis position x | -1.83 | 1.83 | position (m) |
@@ -83,10 +95,20 @@ Some actions are left intentionally blank to reflect the VEX microcontroller's d
 | 8 | Counter-clockwise heading relative to ball | -𝜋 | 𝜋 | radians |
 | 9 | Ball detected in claw | 0 | 1 | on/off |
 
-### Reward
-A reward is given based on the distance the claw is from the ball, as well as the difference of the claw's orientation from the direction from the claw to the ball.
+#### Aprilcube Clawbot
+| Num | Action | Min | Max | Unit |
+| --- | ------ | --- | --- | ---- |
+| 0 | Chassis position x | -1.83 | 1.83 | position (m) |
+| 1 | Chassis position y | -1.83 | 1.83 | position (m) |
+| 2 | Counter-clockwise heading of chassis, y-axis=0 | -𝜋 | 𝜋 | radians |
+| 3 | Pitch of the arm | -𝜋/2 | 𝜋/2 | radians |
+| 4 | Arm angular velocity | -inf | inf | rad/s |
+| 5 | Cube detected in claw | 0 | 1 | on/off |
 
-`reward = 1 - sum(ball.xyz - claw.xyz).sqrt() - abs(heading - angleto(claw, ball)) / PI`
+### Reward
+A reward is given based on the distance the claw is from the object, as well as the difference of the claw's orientation from the direction from the claw to the object.
+
+`reward = 1 - sum(object.xyz - claw.xyz).sqrt() - abs(heading - claw.angleto(object)) / PI`
 
 This is the default reward, however you may specify your own reward function as you like.
 
@@ -120,3 +142,7 @@ if __name__ == "__main__":
 ```
 
 Note that rendering the color and depth frames take a significant amount of time from the simulator, so it will cause step times to increase as well.
+
+#### Aprilcube Clawbot
+
+Each of the cube's 6 faces contains one of three apriltags - tag16h5 {12, 13, 14}. The cube is 2.56"x2.56"x2.56", however when detecting tags remember that apriltags detect only the inner (black) portion. That means that in reality the tag's size parameter should be 2.56 * 3/4.
