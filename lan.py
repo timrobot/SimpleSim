@@ -84,6 +84,8 @@ async def handle_websocket(websocket, path):
           D = (D[:,:,2] / 256 + D[:,:,1]) / 256 * (far - near) + near
           D = np.where(D < 10.0, D, 0)
           depth = (D * 1000).astype(np.uint16)
+          if color.shape[-1] == 4:
+            color = color[:,:,:3]
           np.copyto(color_np, color)
           np.copyto(depth_np, depth)
 

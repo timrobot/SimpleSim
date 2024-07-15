@@ -56,7 +56,7 @@
     float mm250 = modf(depth * 256.0f, mpost250);
 
     gl_FragColor.rgb = vec3( mm250, mpost250 / 256.0f, 0 );
-    //gl_FragColor.a = 1.0;
+    gl_FragColor.a = 1.0;
   }
 </script>
 
