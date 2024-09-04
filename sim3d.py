@@ -190,6 +190,9 @@ class ThreeSimEnv:
     self.hatslen = Value(c_uint8, 0)
 
   def __del__(self):
+    self.stop()
+
+  def stop(self):
     lan.stop()
     if self.ui_task:
       self.ui_task.kill()

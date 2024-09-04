@@ -89,7 +89,7 @@
       const everyCollideGroup = 0xFF;
 
       // Create a camera
-      const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 50);
+      const camera = new THREE.PerspectiveCamera(57, window.innerWidth / window.innerHeight, 0.1, 50);
       camera.position.set(0, 3, 5);
       camera.lookAt(0, 0, 0);
 
@@ -276,7 +276,7 @@
         loaded.claws = true;
       });
 
-      const robotCamera = new THREE.PerspectiveCamera(75, 640 / 360, 0.1, 50);
+      const robotCamera = new THREE.PerspectiveCamera(57, 640 / 360, 0.1, 50);
       const cameraGeometry = new THREE.BoxGeometry(in2m(3.7), in2m(.75), in2m(.8), 8);
       const cameraMesh = new THREE.Mesh(cameraGeometry, metalMaterial);
       cameraMesh.position.set(0, in2m(2.5), in2m(5.5));
@@ -319,7 +319,7 @@
       const pitch = new THREE.Euler();
       const rpm = 100;
       const omega = rpm * 2 * Math.PI / 60;
-      const meters_psec = omega * in2m(2);
+      const meters_psec = 2 * omega * in2m(2);
       const linearCoeff = meters_psec;
       const angularCoeff = meters_psec / in2m(10);
       let clawAngle = 0; // negative values = more open

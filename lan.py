@@ -15,7 +15,6 @@ from multiprocessing import (
 from ctypes import c_int, c_float, c_bool, c_uint8, c_uint16, c_char
 from datetime import datetime
 import json
-# from scipy.signal import convolve2d
 
 # shared variables
 frame_shape = (360, 640)

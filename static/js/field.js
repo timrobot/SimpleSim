@@ -60,30 +60,20 @@ class Field extends THREE.Group {
       this.tag16h5[i] = frame_mesh;
     }
 
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 24; i++) {
       this.tag16h5[i].rotateX(Math.PI / 2);
-      if (i < 3) {
+      if (i < 6) {
+        this.tag16h5[i].rotateZ(0);
+        this.tag16h5[i].position.set(in2m(60 - 24 * i), in2m(12), in2m(-72));
+      } else if (6 <= i && i < 12) {
         this.tag16h5[i].rotateZ(-Math.PI / 2);
-        this.tag16h5[i].position.set(in2m(-72), in2m(12), in2m(-12 - 24 * i));
-      } else if (3 <= i && i < 9) {
-        this.tag16h5[i].position.set(in2m(-60 + 24 * (i - 3)), in2m(12), in2m(-72));
-      } else if (9 <= i && i < 12) {
-        this.tag16h5[i].rotateZ(Math.PI / 2);
-        this.tag16h5[i].position.set(in2m(72), in2m(12), in2m(-60 + 24 * (i - 9)));
-      }
-      this.add(this.tag16h5[i]);
-    }
-    for (let i = 18; i < 30; i++) {
-      this.tag16h5[i].rotateX(Math.PI / 2);
-      if (18 <= i && i < 21) {
-        this.tag16h5[i].rotateZ(-Math.PI / 2);
-        this.tag16h5[i].position.set(in2m(-72), in2m(12), in2m(12 + 24 * (i - 18)));
-      } else if (21 <= i && i < 27) {
+        this.tag16h5[i].position.set(in2m(-72), in2m(12), in2m(-60 + 24 * (i - 6)));
+      } else if (12 <= i && i < 18) {
         this.tag16h5[i].rotateZ(Math.PI);
-        this.tag16h5[i].position.set(in2m(-60 + 24 * (i - 21)), in2m(12), in2m(72));
-      } else if (27 <= i && i < 30) {
+        this.tag16h5[i].position.set(in2m(-60 + 24 * (i - 12)), in2m(12), in2m(72));
+      } else if (18 <= i && i < 24) {
         this.tag16h5[i].rotateZ(Math.PI / 2);
-        this.tag16h5[i].position.set(in2m(72), in2m(12), in2m(60 - 24 * (i - 27)));
+        this.tag16h5[i].position.set(in2m(72), in2m(12), in2m(60 - 24 * (i - 18)));
       }
       this.add(this.tag16h5[i]);
     }
