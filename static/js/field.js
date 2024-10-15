@@ -7,8 +7,8 @@ function loadTexture(path) {
   const filepath = `./static/assets/${path}`;
   const texture = textureLoader.load(filepath);
   texture.colorSpace = THREE.SRGBColorSpace;
-  texture.minFilter = THREE.NearestFilter;
-  texture.magFilter = THREE.NearestFilter;
+  // texture.minFilter = THREE.NearestFilter; // we dont want blocky
+  // texture.magFilter = THREE.NearestFilter;
   return texture;
 }
 
