@@ -6,10 +6,16 @@ __Sim details:__ three.js render, ammo/bullet physics
 __OSHW Support:__ Windows/Mac/Linux, does not require a GPU
 
 ### Quickstart
-To install the needed libraries, you will first need tkinter. Note that while it comes built in on many systems, some systems will require an additional install. For instance, on ubuntu you can custom install tkinter by typing in the following command:
+To install the needed libraries, you will first need tkinter. Note that while it comes built in on Windows, Mac/Linux will require an additional install.
 
 ```bash
+# Linux
 sudo apt-get install python3-tk
+```
+
+```bash
+# Mac
+brew install python-tk
 ```
 
 For all platforms, you can then do a standard pip install.
