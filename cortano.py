@@ -84,5 +84,4 @@ class VexV5(AprilcubeClawbotEnv):
       motors = [x / 100. for x in self.motors]
       action = [motors[0], motors[2], motors[7], 0, 0, 0, 0, 0, 0, -motors[9]]
       self.obs, _, __, ___ = self.step(action)
-      print(super().keys)
     return r
