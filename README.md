@@ -58,7 +58,7 @@ A cube is positioned randomly inside of a standard 144"x144" field, with a contr
 | Observation Shape | (12,) |
 | Observation High | [inf inf inf inf inf inf inf inf inf inf inf inf] |
 | Observation Low | [-inf -inf -inf -inf -inf -inf -inf -inf -inf -inf -inf -inf] |
-| Import | `from sim3d import AprilcubeClawbotEnv` |
+| Import | `from cortano import VexV5, RealsenseCamera` |
 
 ### Action Space
 Some actions are left intentionally blank to reflect the VEX microcontroller's disconnected ports.
