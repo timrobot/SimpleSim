@@ -1,7 +1,11 @@
 # SimpleSim
-This environment is a simple simulation engine to view and control a standard VEX Clawbot and move it via motor torques. This is in <b>BETA</b> and must be run from the repository directory until a package can be created and some features added, however feel free to test as you like.
+This environment is a simple simulation engine to view and control a standard VEX Clawbot and move it via motor torques, similar to the interface used on the Jetson Orin Nano. This is in __BETA__ and must be run from the repository directory until a package can be created and some features added, however feel free to test as you like.
 
-#### Quickstart
+__Sim details:__ three.js render, ammo/bullet physics
+
+__OSHW Support:__ Windows/Mac/Linux, does not require a GPU
+
+### Quickstart
 To install the needed libraries, you will first need tkinter. Note that while it comes built in on many systems, some systems will require an additional install. For instance, on ubuntu you can custom install tkinter by typing in the following command:
 
 ```bash
@@ -22,45 +26,38 @@ Run an example program to control the robot. You can use W(↑) A(←) S(↓) D(
 python3 main.py
 ```
 
-### Example
-You will notice that the interface to the simulation engine is very similar to Gym's interface, for good reason. It's quite simple to read, and easy to get up and running. For example, to import the tennis ball clawbot environment:
+### Example code
+A full example code to manually control the robot can be seen here:
 
 ```python
-from sim3d import TennisBallClawbotEnv
+from cortano import RealsenseCamera, VexV5
 
 if __name__ == "__main__":
-  env = TennisBallClawbotEnv()
-  env.render()
-  while env.running():
-    obs = env.reset()
-    for step in range(200):
-      action = [0] * 10
-      action[0] = 0.5 # left
-      action[9] = -0.5 # right
+  camera = RealsenseCamera()
+  robot = VexV5()
 
-      new_obs, reward, term, info = env.step(action)
+  while robot.running():
+    color, depth = camera.read()
+    sensors, battery = robot.read()
+
+    keys = robot.controller.keys
+    y = keys["w"] - keys["s"]
+    x = keys["d"] - keys["a"]
+    robot.motors[0] = y + x
+    robot.motors[9] = y - x
+    robot.motors[2] = keys["p"] - keys["l"]
+    robot.motors[7] = keys["o"] - keys["k"]
 ```
 
 ### Description
 
-#### Tennis Ball Clawbot
-A ball is positioned randomly inside of a standard 144"x144" field. The goal of the robot is to navigate to the position of the ball such that the ball is at the center of the claw. This environment is made with Three.js using Ammo/Bullet physics. It runs on Windows/Mac/Linux and does not require a GPU.
-
+A cube is positioned randomly inside of a standard 144"x144" field, with a controllable VEX clawbot.
 |  |  |
 | -- | -- |
 | Action Space | Box(-1.0, 1.0, (10,), float32) |
-| Observation Shape | (10,) |
-| Observation High | [inf inf inf inf inf inf inf inf inf inf] |
-| Observation Low | [-inf -inf -inf -inf -inf -inf -inf -inf -inf -inf] |
-| Import | `from sim3d import TennisBallClawbotEnv` |
-
-#### Aprilcube Clawbot
-|  |  |
-| -- | -- |
-| Action Space | Box(-1.0, 1.0, (10,), float32) |
-| Observation Shape | (6,) |
-| Observation High | [inf inf inf inf inf inf] |
-| Observation Low | [-inf -inf -inf -inf -inf -inf] |
+| Observation Shape | (12,) |
+| Observation High | [inf inf inf inf inf inf inf inf inf inf inf inf] |
+| Observation Low | [-inf -inf -inf -inf -inf -inf -inf -inf -inf -inf -inf -inf] |
 | Import | `from sim3d import AprilcubeClawbotEnv` |
 
 ### Action Space
@@ -68,81 +65,70 @@ Some actions are left intentionally blank to reflect the VEX microcontroller's d
 
 | Num | Action | Control Min | Control Max | Unit |
 | --- | ------ | ----------- | ----------- | ---- |
-| 0 | Angular velocity target of the left motor | -1 | 1 | rpm (rad/m) |
-| 1 | Torque applied on the arm | -1 | 1 | Torque (Nm) |
-| 2 | Torque applied on the claw | -1 | 1 | Torque (Nm) |
+| 0 | Angular velocity target of the left motor | -100 | 100 | percent |
+| 1 | ❌ |  |  |  |
+| 2 | Angular velocity target of the claw | -100 | 100 | percent |
 | 3 | ❌ |  |  |  |
 | 4 | ❌ |  |  |  |
 | 5 | ❌ |  |  |  |
 | 6 | ❌ |  |  |  |
-| 7 | ❌ |  |  |  |
+| 7 | Angular velocity target of the arm | -100 | 100 | percent |
 | 8 | ❌ |  |  |  |
-| 9 | Angular velocity target of the right motor | -1 | 1 | rpm (rad/m) |
+| 9 | Angular velocity target of the right motor | -100 | 100 | percent |
 
 ### Observation Space
 
-#### Tennis Ball Clawbot
+#### VexV5 Clawbot
+`sensors, battery = robot.read()`
 | Num | Action | Min | Max | Unit |
 | --- | ------ | --- | --- | ---- |
-| 0 | Chassis position x | -1.83 | 1.83 | position (m) |
-| 1 | Chassis position y | -1.83 | 1.83 | position (m) |
-| 2 | Counter-clockwise heading of chassis, y-axis=0 | -𝜋 | 𝜋 | radians |
-| 3 | Pitch of the arm | -𝜋/2 | 𝜋/2 | radians |
-| 4 | Arm angular velocity | -inf | inf | rad/s |
-| 5 | Ball position x | -1.83 | 1.83 | position (m) |
-| 6 | Ball position y | -1.83 | 1.83 | position (m) |
-| 7 | Ball distance from claw | 0 | 5.18 | distance (m) |
-| 8 | Counter-clockwise heading relative to ball | -𝜋 | 𝜋 | radians |
-| 9 | Ball detected in claw | 0 | 1 | on/off |
+| 0  | Left Motor ang position | -inf | inf | position (degrees) |
+| 1  | Left Motor ang velocity | -inf | inf | velocity (degrees/second) |
+| 2  | Left Motor torque | -inf | inf | Nm * 1e3 |
+| 3  | Right Motor ang position | -inf | inf | position (degrees) |
+| 4  | Right Motor ang velocity | -inf | inf | velocity (degrees/se5ond) |
+| 5  | Right Motor torque | -inf | inf | Nm * 1e3 |
+| 6  | Arm ang position | -inf | inf | position (degrees) |
+| 7  | Arm ang velocity | -inf | inf | velocity (degrees/second) |
+| 8  | Arm torque | -inf | inf | Nm * 1e3 |
+| 9  | Claw ang position | -inf | inf | position (degrees) |
+| 10 | Claw ang velocity | -inf | inf | velocity (degrees/second) |
+| 11 | Claw torque | -inf | inf | Nm * 1e3 |
 
-#### Aprilcube Clawbot
-| Num | Action | Min | Max | Unit |
+#### RealsenseCamera
+`color, depth = camera.read()`
+| Name | Description | Shape | MaxValue | dtype |
 | --- | ------ | --- | --- | ---- |
-| 0 | Chassis position x | -1.83 | 1.83 | position (m) |
-| 1 | Chassis position y | -1.83 | 1.83 | position (m) |
-| 2 | Counter-clockwise heading of chassis, y-axis=0 | -𝜋 | 𝜋 | radians |
-| 3 | Pitch of the arm | -𝜋/2 | 𝜋/2 | radians |
-| 4 | Arm angular velocity | -inf | inf | rad/s |
-| 5 | Cube detected in claw | 0 | 1 | on/off |
+| color | BGR numpy array | (360, 640, 3) | 255 | uint8 |
+| depth | Depth(m) numpy array | (360, 640) | 10000 | uint16 |
 
-### Reward
-A reward is given based on the distance the claw is from the object, as well as the difference of the claw's orientation from the direction from the claw to the object.
-
-`reward = 1 - sum(object.xyz - claw.xyz).sqrt() - abs(heading - claw.angleto(object)) / PI`
-
-This is the default reward, however you may specify your own reward function as you like.
+#### Camera API
+`camera = RealsenseCamera()`
+| Property | Description |
+| --- | --- |
+| `camera.fx` | focal length (x axis) |
+| `camera.fy` | focal length (y axis) |
+| `camera.cx` | principal center point (x axis) |
+| `camera.cy` | principal center point (y axis) |
 
 ### Environmental Details
-Color and depth frames are shown on a window when `render()` gets called. This window also allows keyboard inputs to be queried, meaning that if you wanted to
-manually control the robot, you can call the `env.keys[keyname:str]` api. For example
+The default unit is in meters, with the Z axis pointing upwards.
+
+Color and depth frames are gathered from the Realsense Camera, which tries to mimic a Realsense D415. Note that by default, the simulator will display these frames on the control window. To manually control the robot, you can call the `robot.controller.keys[keyname:str]` api. For example
 
 ```python
-env.render()
-while env.running():
-  a_pressed = env.keys['a'] # 0 or 1
-```
-
-To access these color and depth frames, say, for computer vision and SLAM, you can use the 4th output from the `step()` function, as well as enable the info flag in `reset(extra_info=True)`:
-
-```python
-import cv2
-from sim3d import TennisBallClawbotEnv
-
-if __name__ == "__main__":
-  env = TennisBallClawbotEnv()
-  env.render()
-  obs, info = env.reset(extra_info=True)
-  while env.running():
-    obs, reward, term, info = env.step([0] * 10)
-    color = info["color"]
-    depth = info["depth"]
-
-    cv2.imshow("color", color)
-    cv2.waitKey(1)
+robot = VexV5()
+while robot.running():
+  a_pressed = robot.controller.keys['a'] # 0 or 1
 ```
 
 Note that rendering the color and depth frames take a significant amount of time from the simulator, so it will cause step times to increase as well.
+To turn this off, set render to False:
 
-#### Aprilcube Clawbot
+```python
+robot = VexV5(render=False)
+```
+
+#### Aprilcube Details
 
 Each of the cube's 6 faces contains one of three apriltags - tag16h5 {12, 13, 14}. The cube is 2.56"x2.56"x2.56", however when detecting tags remember that apriltags detect only the inner (black) portion. That means that in reality the tag's size parameter should be 2.56 * 3/4.

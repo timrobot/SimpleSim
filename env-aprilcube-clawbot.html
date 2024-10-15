@@ -87,7 +87,7 @@
       const everyCollideGroup = 0xFF;
 
       // Create a camera
-      const camera = new THREE.PerspectiveCamera(57, window.innerWidth / window.innerHeight, 0.1, 50); // d435i = 58
+      const camera = new THREE.PerspectiveCamera(57, window.innerWidth / window.innerHeight, 0.1, 50);
       camera.position.set(0, 3, 5);
       camera.lookAt(0, 0, 0);
 
@@ -290,8 +290,6 @@
         const filepath = `./static/assets/${path}`;
         const texture = textureLoader.load(filepath);
         texture.colorSpace = THREE.SRGBColorSpace;
-        texture.minFilter = THREE.NearestFilter;
-        texture.magFilter = THREE.NearestFilter;
         return texture;
       }
 
@@ -358,6 +356,10 @@
           heading.y,
           pitch.x,
           physx.get(arm1).getAngularVelocity().x(),
+          aprilcubeMesh.position.x,
+          -aprilcubeMesh.position.z,
+          distance,
+          dtheta,
           objectGrabbed ? 1 : 0
         ], reward);
         connection.render(scene, robotCamera);

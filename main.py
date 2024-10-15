@@ -1,15 +1,14 @@
-from sim3d import TennisBallClawbotEnv
+from cortano import RealsenseCamera, VexV5
 
 if __name__ == "__main__":
-  env = TennisBallClawbotEnv()
-  env.render()
-  obs = env.reset()
-  while env.running():
-    y = env.keys["w"] - env.keys["s"]
-    x = env.keys["d"] - env.keys["a"]
-    action = [0] * 10
-    action[0] = y + x
-    action[9] = -y + x
-    action[1] = env.keys["p"] - env.keys["l"]
-    action[2] = env.keys["o"] - env.keys["k"]
-    next_obs, reward, term, _ = env.step(action)
+  camera = RealsenseCamera()
+  robot = VexV5()
+
+  while robot.running():
+    keys = robot.controller.keys
+    y = keys["w"] - keys["s"]
+    x = keys["d"] - keys["a"]
+    robot.motors[0] = (y + x) * 100
+    robot.motors[9] = (y - x) * 100
+    robot.motors[2] = (keys["p"] - keys["l"]) * 100
+    robot.motors[7] = (keys["o"] - keys["k"]) * 100

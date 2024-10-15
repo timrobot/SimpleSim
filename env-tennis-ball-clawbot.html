@@ -16,8 +16,6 @@
     <script src="https://unpkg.com/ammo.js@0.0.10/ammo.js"></script>
     <script type="module" src="/static/js/physics.js"></script>
     <script type="module" src="/static/js/lan.js"></script>
-    <!-- <script type="text/javascript" src="/static/js/ammo.js"></script> -->
-
 
     <style type="text/css">
       * {
@@ -277,7 +275,7 @@
       });
 
       const robotCamera = new THREE.PerspectiveCamera(57, 640 / 360, 0.1, 50);
-      const cameraGeometry = new THREE.BoxGeometry(in2m(3.7), in2m(.75), in2m(.8), 8);
+      const cameraGeometry = new THREE.BoxGeometry(in2m(3.7), in2m(.75), in2m(.8));
       const cameraMesh = new THREE.Mesh(cameraGeometry, metalMaterial);
       cameraMesh.position.set(0, in2m(2.5), in2m(5.5));
       cameraMesh.add(robotCamera);

@@ -171,7 +171,7 @@ class ThreeSimEnv:
     """
     lan.start(htmlpath, port, httpport)
     self.keyboard_buf = RawArray(c_uint8, 128)
-    time.sleep(0.3)
+    time.sleep(2.0)
     if autolaunch:
       self.browser_process = webbrowser.open(f"http://127.0.0.1:{httpport}")
     self.ui_task = None
