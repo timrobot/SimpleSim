@@ -21,11 +21,12 @@ class RealsenseCamera:
 
   def read(self):
     global color, depth, env
-    if env._hasread:
-      env._hasread = False
-    else:
-      action = [0] * 10
-      env.obs, rew, term, info = env.step(action)
+    if not env._camera_read_active:
+      env._camera_read_active = True
+    elif not env._sensor_read_active:
+      motors = [x / 100. for x in env.motors]
+      action = [motors[0], motors[2], motors[7], 0, 0, 0, 0, 0, 0, -motors[9]]
+      env.obs, _, __, info = env.step(action)
       color = info["color"]
       depth = info["depth"]
     return color, depth
@@ -51,7 +52,9 @@ class VexV5(AprilcubeClawbotEnv):
     global color, depth
     color = info["color"]
     depth = info["depth"]
-    self._hasread = True
+    self._camera_read_active = False
+    self._sensor_read_active = False
+    self._running_in_play = False
 
   def read(self):
     motors = [x / 100. for x in self.motors]
@@ -68,7 +71,7 @@ class VexV5(AprilcubeClawbotEnv):
     color = info["color"]
     depth = info["depth"]
 
-    self._hasread = True
+    self._sensor_read_active = True
     return sensors, 100
   
   @property
@@ -76,11 +79,12 @@ class VexV5(AprilcubeClawbotEnv):
     return VexJoystick(super().keys)
   
   def running(self):
+    self._running_in_play = True
     r = super().running()
     global color, depth, env
-    if self._hasread:
-      self._hasread = False
-    else:
+    if not self._running_in_play:
+      self._running_in_play = True
+    elif not self._camera_read_active and not self._sensor_read_active:
       motors = [x / 100. for x in self.motors]
       action = [motors[0], motors[2], motors[7], 0, 0, 0, 0, 0, 0, -motors[9]]
       self.obs, _, __, ___ = self.step(action)
