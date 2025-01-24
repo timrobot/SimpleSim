@@ -51,8 +51,8 @@ if __name__ == "__main__":
     x = keys["d"] - keys["a"]
     robot.motors[0] = (y + x) * 50
     robot.motors[9] = (y - x) * 50
-    robot.motors[2] = (keys["p"] - keys["l"]) * 50
-    robot.motors[7] = (keys["o"] - keys["k"]) * 50
+    robot.motors[7] = (keys["p"] - keys["l"]) * 50
+    robot.motors[2] = (keys["o"] - keys["k"]) * 50
 ```
 
 ### Description

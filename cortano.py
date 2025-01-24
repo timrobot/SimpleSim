@@ -25,7 +25,7 @@ class RealsenseCamera:
       env._camera_read_active = True
     elif not env._sensor_read_active:
       motors = [x / 100. for x in env.motors]
-      action = [motors[0], motors[2], motors[7], 0, 0, 0, 0, 0, 0, -motors[9]]
+      action = [motors[0], 0, motors[2], 0, 0, 0, 0, motors[7], 0, -motors[9]]
       env.obs, _, __, info = env.step(action)
       color = info["color"]
       depth = info["depth"]
@@ -58,7 +58,7 @@ class VexV5(AprilcubeClawbotEnv):
 
   def read(self):
     motors = [x / 100. for x in self.motors]
-    action = [motors[0], motors[2], motors[7], 0, 0, 0, 0, 0, 0, -motors[9]]
+    action = [motors[0], 0, motors[2], 0, 0, 0, 0, motors[7], 0, -motors[9]]
     self.obs, rew, term, info = self.step(action)
     sensors = [
       0, action[0], 0,
@@ -86,6 +86,6 @@ class VexV5(AprilcubeClawbotEnv):
       self._running_in_play = True
     elif not self._camera_read_active and not self._sensor_read_active:
       motors = [x / 100. for x in self.motors]
-      action = [motors[0], motors[2], motors[7], 0, 0, 0, 0, 0, 0, -motors[9]]
+      action = [motors[0], 0, motors[2], 0, 0, 0, 0, motors[7], 0, -motors[9]]
       self.obs, _, __, ___ = self.step(action)
     return r
