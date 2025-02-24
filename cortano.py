@@ -1,7 +1,7 @@
 ### Note! This is just a virtual wrapper around the environment to make sure that your code is working.
 ### If you want to make sure that your code works on the real robot, copy over your source code files to the robot.
 
-from environments import AprilcubeClawbotEnv
+from environments import TennisBallClawbotEnv
 import lan
 
 color = None
@@ -35,7 +35,7 @@ class VexController:
   def __init__(self, keys):
     self.keys = keys
 
-class VexV5(AprilcubeClawbotEnv):
+class VexV5(TennisBallClawbotEnv):
   def __init__(self, render=True):
     global env
     if env is not None:
@@ -43,7 +43,7 @@ class VexV5(AprilcubeClawbotEnv):
     else:
       env = self
 
-    super().__init__()
+    super().__init__(autolaunch=False)
     if render:
       self.render()
     self.motors = [0] * 10
