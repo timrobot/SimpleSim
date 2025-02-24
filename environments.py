@@ -292,7 +292,7 @@ class PendulumEnv(ThreeSimEnv):
     action_space.high = [1.0] * action_space.shape[0]
     super(PendulumEnv, self).__init__('./env-pendulum.html', observation_space, action_space, port, httpport, autolaunch)
 
-class AprilcubeClawbotEnv(ThreeSimEnv):
+class MultiplayerEnv(ThreeSimEnv):
   def __init__(self, port=9999, httpport=8765, autolaunch=True):
     observation_space = namedtuple('Box', ['high', 'low', 'shape'])
     observation_space.shape = (6,)
@@ -302,10 +302,10 @@ class AprilcubeClawbotEnv(ThreeSimEnv):
     action_space.shape = (10,)
     action_space.low = [-1.0] * action_space.shape[0]
     action_space.high = [1.0] * action_space.shape[0]
-    super(AprilcubeClawbotEnv, self).__init__('./env-aprilcube-clawbot.html', observation_space, action_space, port, httpport, autolaunch)
+    super(MultiplayerEnv, self).__init__('./env-multiplayer.html', observation_space, action_space, port, httpport, autolaunch)
   
 if __name__ == "__main__":
-  env = AprilcubeClawbotEnv()
+  env = MultiplayerEnv()
   # env.render()
   while env.running():
     env.reset()

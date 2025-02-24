@@ -1,7 +1,7 @@
 ### Note! This is just a virtual wrapper around the environment to make sure that your code is working.
 ### If you want to make sure that your code works on the real robot, copy over your source code files to the robot.
 
-from sim3d import AprilcubeClawbotEnv
+from environments import AprilcubeClawbotEnv
 import lan
 
 color = None
@@ -31,7 +31,7 @@ class RealsenseCamera:
       depth = info["depth"]
     return color, depth
   
-class VexJoystick:
+class VexController:
   def __init__(self, keys):
     self.keys = keys
 
@@ -76,7 +76,7 @@ class VexV5(AprilcubeClawbotEnv):
   
   @property
   def controller(self):
-    return VexJoystick(super().keys)
+    return VexController(super().keys)
   
   def running(self):
     self._running_in_play = True

@@ -46,9 +46,16 @@ class Field extends THREE.Group {
       wall.castShadow = true;
       wall.receiveShadow = true;
       this.add(wall);
-      physx.add(wall, {collideGroup: 1, collideWith: 0xFF,
-        geometry: "BoxGeometry", parameters: {width: in2m(145), height: in2m(13.5), depth: in2m(1)}});
+      physx.add(wall, {collideGroup: 1, collideWith: 0xFF});
     }
+
+    const columnGeometry = new THREE.BoxGeometry(in2m(4), in2m(13.5), in2m(4));
+    const columnMaterial = new THREE.MeshLambertMaterial({color: 0xd6d9cc});
+    const column = new THREE.Mesh(columnGeometry, columnMaterial);
+    column.castShadow = true;
+    column.receiveShadow = true;
+    this.add(column);
+    physx.add(column, {collideGroup: 1, collideWith: 0xFF});
 
     const black_material = new THREE.MeshLambertMaterial({color: 0x080808});
     for (let i = 0; i < 30; i++) {

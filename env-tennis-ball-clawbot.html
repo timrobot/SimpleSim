@@ -76,15 +76,14 @@
       // Create a scene + physics
       const scene = new THREE.Scene();
       const physx = new AmmoPhysics(new THREE.Clock(), { angularDamping: 0.99 });
-      const colGroup = {
+      physx.setCollisionGroups({
         env: 1,
         robot: 2,
         effector: 4,
         object: 8,
         arm1: 16,
         arm2: 32
-      };
-      const everyCollideGroup = 0xFF;
+      });
 
       // Create a camera
       const camera = new THREE.PerspectiveCamera(57, window.innerWidth / window.innerHeight, 0.1, 50);
@@ -147,8 +146,8 @@
       scene.add(chassis);
       physx.add(chassis, {
         mass: 5.0,
-        collideGroup: colGroup.robot,
-        collideWith: colGroup.env | colGroup.object,
+        collideGroup: physx.collideGroup.robot,
+        collideWith: physx.collideGroup.env | physx.collideGroup.object,
         geometry: "BoxGeometry",
         parameters: { width: in2m(10), height: fullChassisHeight, depth: in2m(10) }
       });
@@ -189,8 +188,8 @@
       scene.add(arm1);
       physx.add(arm1, {
         mass: 0.05,
-        collideGroup: colGroup.arm1,
-        collideWith: colGroup.env | colGroup.arm2
+        collideGroup: physx.collideGroup.arm1,
+        collideWith: physx.collideGroup.env | physx.collideGroup.arm2
       });
       const arm2 = new THREE.Mesh(armGeometry, metalMaterial);
       arm2.castShadow = true;
@@ -199,8 +198,8 @@
       scene.add(arm2);
       physx.add(arm2, {
         mass: 0.05,
-        collideGroup: colGroup.arm2,
-        collideWith: colGroup.env | colGroup.arm1
+        collideGroup: physx.collideGroup.arm2,
+        collideWith: physx.collideGroup.env | physx.collideGroup.arm1
       });
 
       const clawBase = new THREE.Group();
@@ -210,8 +209,8 @@
       scene.add(clawBase);
       physx.add(clawBase, {
         mass: 0.1,
-        collideGroup: colGroup.effector,
-        collideWith: colGroup.env | colGroup.object,
+        collideGroup: physx.collideGroup.effector,
+        collideWith: physx.collideGroup.env | physx.collideGroup.object,
         geometry: "BoxGeometry",
         parameters: { width: in2m(4), height: in2m(2.65), depth: in2m(3.325) }
       });
@@ -301,8 +300,8 @@
       });
       physx.add(ball, {
         mass: 0.5,
-        collideGroup: colGroup.object,
-        collideWith: colGroup.env | colGroup.effector,
+        collideGroup: physx.collideGroup.object,
+        collideWith: physx.collideGroup.env | physx.collideGroup.effector,
         geometry: "SphereGeometry",
         parameters: { radius: in2m(1.28) }
       });

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aprilcube</title>
+    <title>Simple Robot Sim</title>
     <script type="importmap">
       {
         "imports": {
@@ -76,15 +76,14 @@
       // Create a scene + physics
       const scene = new THREE.Scene();
       const physx = new AmmoPhysics(new THREE.Clock(), { angularDamping: 0.99 });
-      const colGroup = {
+      physx.setCollisionGroups({
         env: 1,
         robot: 2,
         effector: 4,
         object: 8,
         arm1: 16,
         arm2: 32
-      };
-      const everyCollideGroup = 0xFF;
+      });
 
       // Create a camera
       const camera = new THREE.PerspectiveCamera(57, window.innerWidth / window.innerHeight, 0.1, 50);
@@ -147,8 +146,8 @@
       scene.add(chassis);
       physx.add(chassis, {
         mass: 5.0,
-        collideGroup: colGroup.robot,
-        collideWith: colGroup.env | colGroup.object,
+        collideGroup: physx.collideGroup.robot,
+        collideWith: physx.collideGroup.env | physx.collideGroup.object,
         geometry: "BoxGeometry",
         parameters: { width: in2m(10), height: fullChassisHeight, depth: in2m(10) }
       });
@@ -189,8 +188,8 @@
       scene.add(arm1);
       physx.add(arm1, {
         mass: 0.05,
-        collideGroup: colGroup.arm1,
-        collideWith: colGroup.env | colGroup.arm2
+        collideGroup: physx.collideGroup.arm1,
+        collideWith: physx.collideGroup.env | physx.collideGroup.arm2
       });
       const arm2 = new THREE.Mesh(armGeometry, metalMaterial);
       arm2.castShadow = true;
@@ -199,8 +198,8 @@
       scene.add(arm2);
       physx.add(arm2, {
         mass: 0.05,
-        collideGroup: colGroup.arm2,
-        collideWith: colGroup.env | colGroup.arm1
+        collideGroup: physx.collideGroup.arm2,
+        collideWith: physx.collideGroup.env | physx.collideGroup.arm1
       });
 
       const clawBase = new THREE.Group();
@@ -210,8 +209,8 @@
       scene.add(clawBase);
       physx.add(clawBase, {
         mass: 0.1,
-        collideGroup: colGroup.effector,
-        collideWith: colGroup.env | colGroup.object,
+        collideGroup: physx.collideGroup.effector,
+        collideWith: physx.collideGroup.env | physx.collideGroup.object,
         geometry: "BoxGeometry",
         parameters: { width: in2m(4), height: in2m(2.65), depth: in2m(3.325) }
       });
@@ -282,45 +281,36 @@
       robotCamera.lookAt(0, in2m(2.5), -1); // look forward
       arm1.add(cameraMesh);
 
-      // load in a single cube with apriltags on it
+      // load in a can as our object
       const textureLoader = new THREE.TextureLoader();
       textureLoader.crossOrigin = 'anonymous';
-
       function loadTexture(path) {
         const filepath = `./static/assets/${path}`;
         const texture = textureLoader.load(filepath);
         texture.colorSpace = THREE.SRGBColorSpace;
         return texture;
       }
+      const tag29Material = new THREE.MeshLambertMaterial({
+        map: loadTexture(`tag16h5_00029.png`)
+      });
 
-      const aprilcubeGeometry = new THREE.BoxGeometry(in2m(2.56), in2m(2.56), in2m(2.56));
-      const tag12Material = new THREE.MeshLambertMaterial({
-        map: loadTexture(`tag16h5_00012.png`)
-      });
-      const tag13Material = new THREE.MeshLambertMaterial({
-        map: loadTexture(`tag16h5_00013.png`)
-      });
-      const tag14Material = new THREE.MeshLambertMaterial({
-        map: loadTexture(`tag16h5_00014.png`)
-      });
-      // right left top bottom front back
-      const aprilcubeMaterial = [
-        tag12Material,
-        tag12Material,
-        tag13Material,
-        tag13Material,
-        tag14Material,
-        tag14Material
-      ];
-      const aprilcubeMesh = new THREE.Mesh(aprilcubeGeometry, aprilcubeMaterial);
-      scene.add(aprilcubeMesh);
-      physx.add(aprilcubeMesh, {
-        mass: 0.5,
-        collideGroup: colGroup.object,
-        collideWith: colGroup.env | colGroup.effector
-      });
-      physx.get(aprilcubeMesh).setFriction(2);
-      physx.get(aprilcubeMesh).setRollingFriction(5);
+      const canGeometry = new THREE.CylinderGeometry(in2m(1.28), in2m(1.28), in2m(4), 8, 1);
+      const canMaterial = new THREE.MeshLambertMaterial({color: 0xee7777});
+      const cans = [];
+      for (let i = 0; i < 2; i++) {
+        cans.push(new THREE.Mesh(canGeometry, canMaterial));
+        cans[i].castShadow = true;
+        cans[i].receiveShadow = true;
+        cans[i].position.set(0, in2m(1.28), 0);
+        scene.add(cans[i]);
+        physx.add(cans[i], {
+          mass: 0.5,
+          collideGroup: physx.collideGroup.object,
+          collideWith: physx.collideGroup.env | physx.collideGroup.effector | physx.collideGroup.object
+        });
+        physx.get(cans[i]).setFriction(2);
+        physx.get(cans[i]).setRollingFriction(5);
+      }
 
       //// Animation loop
       const p = new THREE.Vector3(0, 0, 0);
@@ -342,8 +332,19 @@
         const clawPosition = new THREE.Vector3(0, 0, -in2m(3.7));
         clawPosition.applyQuaternion(clawBase.quaternion);
         clawPosition.add(clawBase.position);
-        const distance = clawPosition.distanceTo(aprilcubeMesh.position);
-        const pq_theta = Math.atan2(clawBase.position.x - aprilcubeMesh.position.x, clawBase.position.z - aprilcubeMesh.position.z);
+
+        // choose the closest can to the claw
+        let can = cans[0];
+        let distance = 100000.;
+        for (let i = 0; i < cans.length; i++) {
+          const canDistance = clawPosition.distanceTo(cans[i].position);
+          if (canDistance < distance) {
+            distance = canDistance;
+            can = cans[i];
+          }
+        }
+        
+        const pq_theta = Math.atan2(clawBase.position.x - can.position.x, clawBase.position.z - can.position.z);
         let dtheta = pq_theta - heading.y;
         while (dtheta > Math.PI) dtheta -= 2 * Math.PI;
         while (dtheta < -Math.PI) dtheta += 2 * Math.PI;
@@ -356,8 +357,8 @@
           heading.y,
           pitch.x,
           physx.get(arm1).getAngularVelocity().x(),
-          aprilcubeMesh.position.x,
-          -aprilcubeMesh.position.z,
+          can.position.x,
+          -can.position.z,
           distance,
           dtheta,
           objectGrabbed ? 1 : 0
@@ -384,12 +385,14 @@
         clawBase.position.set(p.x, p.y, p.z);
         clawAngle = 0;
 
-        aprilcubeMesh.position.set(
-          Math.random() * in2m(140) - in2m(70),
-          in2m(1.28),
-          Math.random() * in2m(140) - in2m(70));
-        console.log("Reset the world, new cube position:", aprilcubeMesh.position);
-        objectGrabbed = false;
+        for (let i = 0; i < cans.length; i++) {
+          cans[i].position.set(
+            Math.random() * in2m(140) - in2m(70),
+            in2m(1.28),
+            Math.random() * in2m(140) - in2m(70));
+          console.log("Reset the world, new can position:", cans[i].position);
+          objectGrabbed = false;
+        }
 
         physx.reset();
         calcReward();
@@ -406,8 +409,18 @@
         const clawPosition = new THREE.Vector3(0, 0, -in2m(3.7));
         clawPosition.applyQuaternion(clawBase.quaternion);
         clawPosition.add(clawBase.position);
-        const distance = clawPosition.distanceTo(aprilcubeMesh.position);
-        const pq_theta = Math.atan2(clawBase.position.x - aprilcubeMesh.position.x, clawBase.position.z - aprilcubeMesh.position.z);
+        
+        let can = cans[0];
+        let distance = 100000.;
+        for (let i = 0; i < cans.length; i++) {
+          const canDistance = clawPosition.distanceTo(cans[i].position);
+          if (canDistance < distance) {
+            distance = canDistance;
+            can = cans[i];
+          }
+        }
+
+        const pq_theta = Math.atan2(clawBase.position.x - can.position.x, clawBase.position.z - can.position.z);
         let dtheta = pq_theta - heading.y;
         while (dtheta > Math.PI) dtheta -= 2 * Math.PI;
         while (dtheta < -Math.PI) dtheta += 2 * Math.PI;
@@ -426,9 +439,12 @@
         clawAngle = Math.max(-60, Math.min(0, clawAngle + clawAction * 10));
         if (objectGrabbed) {
           clawAngle = Math.min(clawAngle, -10.05);
-          physx.get(aprilcubeMesh).setCollisionFlags(2);
+          // todo: instead of being kinematic, perhaps attach the can as a fixed joint to
+          // the clawbase
+          // KINEMATIC https://pybullet.org/Bullet/BulletFull/classbtCollisionObject.html
+          physx.get(can).setCollisionFlags(2);
         } else {
-          physx.get(aprilcubeMesh).setCollisionFlags(0);
+          physx.get(can).setCollisionFlags(0);
         }
         
         const radians = clawAngle * Math.PI / 180;
@@ -458,8 +474,8 @@
           clawPosition.set(0, 0, -in2m(3.7));
           clawPosition.applyQuaternion(clawBase.quaternion);
           clawPosition.add(clawBase.position);
-          aprilcubeMesh.position.set(clawPosition.x, clawPosition.y, clawPosition.z);
-          physx.syncTransform(aprilcubeMesh);
+          can.position.set(clawPosition.x, clawPosition.y, clawPosition.z);
+          physx.syncTransform(can);
         }
         calcReward();
       };

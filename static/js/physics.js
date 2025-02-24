@@ -19,16 +19,60 @@ class AmmoPhysics {
     this.p_ = new Ammo.btVector3(0, 0, 0);
     this.q_ = new Ammo.btQuaternion(0, 0, 0);
 
-    const collisionConfig = new Ammo.btDefaultCollisionConfiguration();
-    const dispatcher = new Ammo.btCollisionDispatcher(collisionConfig);
-    const overlappingPairCache = new Ammo.btDbvtBroadphase();
-    const solver = new Ammo.btSequentialImpulseConstraintSolver(); //Ammo.btDantzigSolver();
+    this.collisionConfig = new Ammo.btDefaultCollisionConfiguration();
+    this.dispatcher = new Ammo.btCollisionDispatcher(this.collisionConfig);
+    this.overlappingPairCache = new Ammo.btDbvtBroadphase();
+    this.solver = new Ammo.btSequentialImpulseConstraintSolver(); //Ammo.btDantzigSolver();
 
-    this.world = new Ammo.btDiscreteDynamicsWorld(dispatcher, overlappingPairCache, solver, collisionConfig);
+    this.world = new Ammo.btDiscreteDynamicsWorld(this.dispatcher, this.overlappingPairCache, this.solver, this.collisionConfig);
     this.world.setGravity(new Ammo.btVector3(0, -9.8, 0));
     this.clock = clock;
 
     this.parameters = parameters;
+    this.collideGroup = {};
+    this.everyGroup = 0xFF;
+  }
+
+  setCollisionGroups(collisionGroups) {
+    this.collideGroup = collisionGroups;
+  }
+
+  detectCollision() {
+    const numManifolds = this.dispatcher.getNumManifolds();
+    for (let i = 0; i < numManifolds; i++) {
+      const contactManifold = this.dispatcher.getManifoldByIndexInternal(i);
+      const numContacts = contactManifold.getNumContacts();
+      let realContactCount = 0;
+      for (let j = 0; j < numContacts; j++) {
+        const contactPoint = contactManifold.getContactPoint(j);
+        const distance = contactPoint.getDistance();
+        if (distance > 0.0) continue;
+        realContactCount++;
+        // console.log(`contact at manifestIndex: ${i} contactIndex: ${j} distance: ${distance}`);
+      }
+      if (realContactCount === 0) continue;
+
+      const rigidBody0 = Ammo.castObject(contactManifold.getBody0(), Ammo.btRigidBody);
+      const rigidBody1 = Ammo.castObject(contactManifold.getBody1(), Ammo.btRigidBody);
+
+      const mesh0 = rigidBody0.threeObject;
+      const mesh1 = rigidBody1.threeObject;
+      if (!mesh0 && !mesh1) continue;
+
+      const options0 = mesh0.userData.options;
+      const options1 = mesh1.userData.options;
+
+      if (options0.collideGroup === 1 || options1.collideGroup === 1) continue;
+
+      // console.log(`Collision detected:`, collideGroup0, collideGroup1);
+      // run the collision callback handler of the object
+      if (options0.collisionCallback) {
+        options0.collisionCallback(mesh1);
+      }
+      if (options1.collisionCallback) {
+        options1.collisionCallback(mesh0);
+      }
+    }
   }
 
   add(mesh, options) {
@@ -81,6 +125,7 @@ class AmmoPhysics {
 
     this.world.addRigidBody(rigidbody, options.collideGroup, options.collideWith);
     mesh.userData.rigidbody = rigidbody;
+    rigidbody.threeObject = mesh; // add it back to the Ammo.js rigidbody for use in collision detection
     mesh.userData.options = options;
     if (options.requires_sync !== false) {
       this.bodies.push(mesh);
@@ -213,6 +258,8 @@ class AmmoPhysics {
         body.quaternion.set(quat.x(), quat.y(), quat.z(), quat.w());
       }
     }
+
+    this.detectCollision();
 
     return deltaTime;
   }

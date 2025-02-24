@@ -57,7 +57,7 @@ if __name__ == "__main__":
 
 ### Description
 
-A cube is positioned randomly inside of a standard 144"x144" field, with a controllable VEX clawbot.
+A set of cans are positioned randomly inside of a standard 144"x144" field, with a controllable VEX clawbot.
 |  |  |
 | -- | -- |
 | Action Space | Box(-1.0, 1.0, (10,), float32) |
@@ -134,7 +134,3 @@ To turn this off, set render to False:
 ```python
 robot = VexV5(render=False)
 ```
-
-#### Aprilcube Details
-
-Each of the cube's 6 faces contains one of three apriltags - tag16h5 {12, 13, 14}. The cube is 2.56"x2.56"x2.56", however when detecting tags remember that apriltags detect only the inner (black) portion. That means that in reality the tag's size parameter should be 2.56 * 3/4.

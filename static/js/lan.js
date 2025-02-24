@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 
 class WSConnection {
-  constructor(port, width, height, near, far) {
+  constructor(port, width, height, near, far, peerid) {
     port = port || 9999;
+    this.peerid = peerid;
 
     // Offscreen elements (cameras)
     this.colorURL;
