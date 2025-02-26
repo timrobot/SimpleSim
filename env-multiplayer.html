@@ -14,13 +14,106 @@
       }
     </script>
     <script src="https://unpkg.com/ammo.js@0.0.10/ammo.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <script type="module" src="/static/js/physics.js"></script>
     <script type="module" src="/static/js/lan.js"></script>
+    
 
     <style type="text/css">
       * {
         margin: 0;
         padding: 0;
+      }
+      html, body {
+        height: 100%;
+      }
+      #container {
+        position: absolute;
+        top: 0px;
+        left: 0px;
+        width: 100%;
+        height: 100%;
+      }
+
+      #peerIdDisplay {
+        position: absolute;
+        top: 0px;
+        left: 0px;
+        font-size: 16px;
+        font-family: Arial, Helvetica, sans-serif;
+        width: 425px;
+        height: 20px;
+        line-height: 20px;
+        padding: 4px 12px 4px 12px;
+        background-color: white;
+        color: black;
+        display: none;
+      }
+
+      #multiplayerContainer {
+        position: absolute;
+        top: 0px;
+        left: 0px;
+        width: 100%;
+        height: 100%;
+        background-color: darkblue; /* For browsers that do not support gradients */
+        background-image: linear-gradient(to bottom right, darkblue, rgb(25, 90, 130));
+        color: white;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+      .centered-div {
+        width: 224px; /* Set the width of your div */
+        /*background-color: darkblue; /* Add background color for visualization */
+        /* text-align: center; */
+        /*line-height: 200px; /* Adjust line height to center text vertically */
+      }
+      .centered-div .button {
+        position: relative;
+        font-size: 18px;
+        font-family: Arial, Helvetica, sans-serif;
+        width: 200px;
+        height: 24px;
+        line-height: 24px;
+        user-select: none;
+        padding: 4px 12px 4px 12px;
+      }
+      .button:hover {
+        cursor: pointer;
+        background-color: rgb(145, 82, 5);
+      }
+
+      #menu2 {
+        display: none;
+      }
+
+      #peerSessionId {
+        font-size: 18px;
+        font-family: Arial, Helvetica, sans-serif;
+        width: 200px;
+        height: 24px;
+        line-height: 24px;
+        appearance: none; /* Remove default styling */
+        -webkit-appearance: none; /* For Safari */
+        -moz-appearance: none; /* For Firefox */
+        
+        /* Additional styles to completely remove default look */
+        border: none;
+        background: none;
+        padding: 0;
+        margin: 0;
+        outline: none;
+        box-shadow: none;
+        background-color: white;
+      }
+
+      #peerIdCopy {
+        position: relative;
+        float: right;
+      }
+      #peerIdCopy:hover {
+        cursor: pointer;
       }
     </style>
 
@@ -62,6 +155,21 @@
 
   </head>
   <body>
+    <div id="container"></div>
+    <div id="multiplayerContainer">
+      <div id="menu1" class="centered-div">
+        <div id="new_session_btn" class="button">NEW SESSION</div>
+        <div id="connect_session_btn" class="button">CONNECT SESSION</div>
+      </div>
+      <div id="menu2" class="centered-div">
+        <input id="peerSessionId" type="text" />
+        <div id="connect_btn" class="button">CONNECT</div>
+        <div id="back_btn" class="button">BACK</div>
+      </div>
+    </div>
+    <div id="peerIdDisplay"><span style="user-select: none;">Session: </span><span id="valueContainer"></span>
+      <span id="peerIdCopy" title="Copy">📋</span>
+    </div>
     <script type="module">
       import * as THREE from 'three';
       import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
@@ -69,9 +177,10 @@
       import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
       import { MTLLoader } from 'three/addons/loaders/MTLLoader.js';
 
-      import AmmoPhysics from '/static/js/physics.js';
-      import WSConnection from '/static/js/lan.js';
-      import { Field } from '/static/js/field.js';
+      import AmmoPhysics from '/js/physics.js';
+      import WSConnection from '/js/lan.js';
+      import NetworkMultiplayer from '/js/multiplayer.js';
+      import { Field } from '/js/field.js';
 
       // Create a scene + physics
       const scene = new THREE.Scene();
@@ -82,7 +191,8 @@
         effector: 4,
         object: 8,
         arm1: 16,
-        arm2: 32
+        arm2: 32,
+        adversary: 64
       });
 
       // Create a camera
@@ -96,7 +206,8 @@
       renderer.setSize(window.innerWidth, window.innerHeight);
       renderer.setPixelRatio(window.devicePixelRatio);
       renderer.setClearColor(0x80c0e0);
-      document.body.appendChild(renderer.domElement);
+      const container = document.getElementById('container');
+      container.appendChild(renderer.domElement);
 
       // Setup lights
       const dirLight = new THREE.DirectionalLight();
@@ -139,22 +250,43 @@
       const fullChassisHeight = in2m(2.25 + .5 + 7.5); // including wheel height
       const metalMaterial = new THREE.MeshLambertMaterial({color: 0xCFDBE5});
 
-      const chassis = new THREE.Group();
-      chassis.position.set(0, fullChassisHeight / 2, 0);
-      chassis.castShadow = true;
-      chassis.receiveShadow = true;
-      scene.add(chassis);
-      physx.add(chassis, {
+      // first robot's position is going to be somewhere on the red side, or positive world-y
+      const chassisA = new THREE.Group();
+      // chassisA.position.set(in2m(Math.random() * 72 - 36), fullChassisHeight / 2, in2m(Math.random() * -48 - 24));
+      chassisA.position.set(0, fullChassisHeight / 2, in2m(-48));
+      chassisA.rotateY(Math.PI);
+      chassisA.castShadow = true;
+      chassisA.receiveShadow = true;
+      scene.add(chassisA);
+      physx.add(chassisA, {
         mass: 5.0,
         collideGroup: physx.collideGroup.robot,
-        collideWith: physx.collideGroup.env | physx.collideGroup.object,
+        collideWith: physx.collideGroup.env | physx.collideGroup.object | physx.collideGroup.adversary,
         geometry: "BoxGeometry",
-        parameters: { width: in2m(10), height: fullChassisHeight, depth: in2m(10) }
+        parameters: { width: in2m(10), height: fullChassisHeight, depth: in2m(10) },
+        networkName: 'chassisA',
+        networkOwner: 'this'
+      });
+
+      const chassisB = new THREE.Group();
+      // chassisB.position.set(in2m(Math.random() * 72 - 36), fullChassisHeight / 2, in2m(Math.random() * 48 + 24));
+      chassisB.position.set(0, fullChassisHeight / 2, in2m(48));
+      chassisB.castShadow = true;
+      chassisB.receiveShadow = true;
+      scene.add(chassisB);
+      physx.add(chassisB, {
+        mass: 5.0,
+        collideGroup: physx.collideGroup.adversary,
+        collideWith: physx.collideGroup.env | physx.collideGroup.object | physx.collideGroup.robot,
+        geometry: "BoxGeometry",
+        parameters: { width: in2m(10), height: fullChassisHeight, depth: in2m(10) },
+        networkName: 'chassisB'
       });
 
       loader.load('/static/assets/Chassis.gltf', (root) => {
         root.scene.position.set(0, -fullChassisHeight / 2 + in2m(2.25), 0);
-        chassis.add(root.scene);
+        chassisA.add(root.scene);
+        chassisB.add(root.scene.clone());
         loaded.chassis = true;
       });
 
@@ -177,99 +309,181 @@
         wheel.receiveShadow = true;
         wheel.rotateZ(Math.PI / 2);
         wheel.position.set(...wheelPositions[i]);
-        chassis.add(wheel);
+        chassisA.add(wheel);
+        chassisB.add(wheel.clone());
       }
 
       const armGeometry = new THREE.BoxGeometry(in2m(1), in2m(0.5), in2m(12.5));
-      const arm1 = new THREE.Mesh(armGeometry, metalMaterial);
-      arm1.castShadow = true;
-      arm1.receiveShadow = true;
-      arm1.position.set(0, fullChassisHeight - in2m(.5), in2m(-1));
-      scene.add(arm1);
-      physx.add(arm1, {
+      const arm1A = new THREE.Mesh(armGeometry, metalMaterial);
+      arm1A.castShadow = true;
+      arm1A.receiveShadow = true;
+      arm1A.position.set(0, fullChassisHeight - in2m(.5), in2m(-1));
+      const arm1B = arm1A.clone();
+      arm1A.rotateY(Math.PI);
+      scene.add(arm1A);
+      physx.add(arm1A, {
         mass: 0.05,
         collideGroup: physx.collideGroup.arm1,
-        collideWith: physx.collideGroup.env | physx.collideGroup.arm2
+        collideWith: physx.collideGroup.env | physx.collideGroup.arm2 | physx.collideGroup.adversary,
+        networkName: "arm1A",
+        networkOwner: 'this'
       });
-      const arm2 = new THREE.Mesh(armGeometry, metalMaterial);
-      arm2.castShadow = true;
-      arm2.receiveShadow = true;
-      arm2.position.set(0, fullChassisHeight - in2m(2.5), in2m(-1));
-      scene.add(arm2);
-      physx.add(arm2, {
+      scene.add(arm1B);
+      physx.add(arm1B, {
+        mass: 0.05,
+        collideGroup: physx.collideGroup.adversary,
+        collideWith: physx.collideGroup.env | physx.collideGroup.robot,
+        networkName: "arm1B"
+      });
+      const arm2A = new THREE.Mesh(armGeometry, metalMaterial);
+      arm2A.castShadow = true;
+      arm2A.receiveShadow = true;
+      arm2A.position.set(0, fullChassisHeight - in2m(2.5), in2m(-1));
+      const arm2B = arm2A.clone();
+      arm2A.rotateY(Math.PI);
+      scene.add(arm2A);
+      physx.add(arm2A, {
         mass: 0.05,
         collideGroup: physx.collideGroup.arm2,
-        collideWith: physx.collideGroup.env | physx.collideGroup.arm1
+        collideWith: physx.collideGroup.env | physx.collideGroup.arm1 | physx.collideGroup.adversary,
+        networkName: "arm2A",
+        networkOwner: 'this'
+      });
+      scene.add(arm2B);
+      physx.add(arm2B, {
+        mass: 0.05,
+        collideGroup: physx.collideGroup.adversary,
+        collideWith: physx.collideGroup.env | physx.collideGroup.robot,
+        networkName: "arm2B"
       });
 
-      const clawBase = new THREE.Group();
-      clawBase.castShadow = true;
-      clawBase.receiveShadow = true;
-      clawBase.position.set(0, fullChassisHeight - in2m(1.5), in2m(-7 - (3.325 / 2 - .325)));
-      scene.add(clawBase);
-      physx.add(clawBase, {
+      const clawBaseA = new THREE.Group();
+      clawBaseA.castShadow = true;
+      clawBaseA.receiveShadow = true;
+      clawBaseA.position.set(0, fullChassisHeight - in2m(1.5), in2m(-7 - (3.325 / 2 - .325)));
+      const clawBaseB = clawBaseA.clone();
+      clawBaseA.rotateY(Math.PI);
+      scene.add(clawBaseA);
+      physx.add(clawBaseA, {
         mass: 0.1,
         collideGroup: physx.collideGroup.effector,
-        collideWith: physx.collideGroup.env | physx.collideGroup.object,
+        collideWith: physx.collideGroup.env | physx.collideGroup.object | physx.collideGroup.adversary,
         geometry: "BoxGeometry",
-        parameters: { width: in2m(4), height: in2m(2.65), depth: in2m(3.325) }
+        parameters: { width: in2m(4), height: in2m(2.65), depth: in2m(3.325) },
+        networkName: "clawBaseA",
+        networkOwner: 'this'
+      });
+      scene.add(clawBaseB);
+      physx.add(clawBaseB, {
+        mass: 0.1,
+        collideGroup: physx.collideGroup.adversary,
+        collideWith: physx.collideGroup.env | physx.collideGroup.robot,
+        geometry: "BoxGeometry",
+        parameters: { width: in2m(4), height: in2m(2.65), depth: in2m(3.325) },
+        networkName: "clawBaseB"
       });
       loader.load('/static/assets/ClawBase.gltf', (root) => {
         root.scene.position.set(0, 0, in2m(0.8375));
-        clawBase.add(root.scene);
+        clawBaseA.add(root.scene);
+        clawBaseB.add(root.scene.clone());
         loaded.clawbase = true;
       });
 
-      const chassis_arm1 = physx.hinge({
-        mesh: chassis,
+      const chassisB_arm1B = physx.hinge({
+        mesh: chassisB,
         xyz: [0, fullChassisHeight / 2 - in2m(.5), in2m(4.5)],
         axis: [1, 0, 0]
       }, {
-        mesh: arm1,
+        mesh: arm1B,
         xyz: [0, 0, in2m(5.5)],
         axis: [1, 0, 0]
       });
-      const arm1_effector = physx.hinge({
-        mesh: arm1,
+      const arm1B_effectorB = physx.hinge({
+        mesh: arm1B,
         xyz: [0, 0, in2m(-6)],
         axis: [1, 0, 0]
       }, {
-        mesh: clawBase,
+        mesh: clawBaseB,
         xyz: [0, in2m(1), in2m(3.325 / 2 - .325)],
         axis: [1, 0, 0]
       });
-      const chassis_arm2 = physx.hinge({
-        mesh: chassis,
+      const chassisB_arm2B = physx.hinge({
+        mesh: chassisB,
         xyz: [0, fullChassisHeight / 2 - in2m(2.5), in2m(4.5)],
         axis: [1, 0, 0]
       }, {
-        mesh: arm2,
+        mesh: arm2B,
         xyz: [0, 0, in2m(5.5)],
         axis: [1, 0, 0]
       });
-      const arm2_effector = physx.hinge({
-        mesh: arm2,
+      const arm2B_effectorB = physx.hinge({
+        mesh: arm2B,
         xyz: [0, 0, in2m(-6)],
         axis: [1, 0, 0]
       }, {
-        mesh: clawBase,
+        mesh: clawBaseB,
         xyz: [0, in2m(-1), in2m(3.325 / 2 - .325)],
         axis: [1, 0, 0]
       });
 
-      const leftClaw = new THREE.Group();
-      leftClaw.position.set(in2m(-1.75), 0, in2m(-.4125));
-      clawBase.add(leftClaw);
-      const rightClaw = new THREE.Group();
-      rightClaw.position.set(in2m(1.75), 0, in2m(-.4125));
-      clawBase.add(rightClaw);
+      const chassis_arm1 = physx.hinge({
+        mesh: chassisA,
+        xyz: [0, fullChassisHeight / 2 - in2m(.5), in2m(4.5)],
+        axis: [1, 0, 0]
+      }, {
+        mesh: arm1A,
+        xyz: [0, 0, in2m(5.5)],
+        axis: [1, 0, 0]
+      });
+      const arm1_effector = physx.hinge({
+        mesh: arm1A,
+        xyz: [0, 0, in2m(-6)],
+        axis: [1, 0, 0]
+      }, {
+        mesh: clawBaseA,
+        xyz: [0, in2m(1), in2m(3.325 / 2 - .325)],
+        axis: [1, 0, 0]
+      });
+      const chassis_arm2 = physx.hinge({
+        mesh: chassisA,
+        xyz: [0, fullChassisHeight / 2 - in2m(2.5), in2m(4.5)],
+        axis: [1, 0, 0]
+      }, {
+        mesh: arm2A,
+        xyz: [0, 0, in2m(5.5)],
+        axis: [1, 0, 0]
+      });
+      const arm2_effector = physx.hinge({
+        mesh: arm2A,
+        xyz: [0, 0, in2m(-6)],
+        axis: [1, 0, 0]
+      }, {
+        mesh: clawBaseA,
+        xyz: [0, in2m(-1), in2m(3.325 / 2 - .325)],
+        axis: [1, 0, 0]
+      });
+
+      const leftClawA = new THREE.Group();
+      leftClawA.position.set(in2m(-1.75), 0, in2m(-.4125));
+      clawBaseA.add(leftClawA);
+      const rightClawA = new THREE.Group();
+      rightClawA.position.set(in2m(1.75), 0, in2m(-.4125));
+      clawBaseA.add(rightClawA);
+      const leftClawB = leftClawA.clone();
+      clawBaseB.add(leftClawB);
+      const rightClawB = rightClawA.clone();
+      clawBaseB.add(rightClawB);
       loader.load('/static/assets/Claw.gltf', (root) => {
         root.scene.position.set(in2m(.136), 0, -in2m(.99));
-        rightClaw.add(root.scene);
-        const clone = root.scene.clone();
-        clone.position.set(-in2m(.136), 0, -in2m(.99));
-        clone.rotateZ(Math.PI);
-        leftClaw.add(clone);
+        rightClawA.add(root.scene);
+        const clone1 = root.scene.clone();
+        clone1.position.set(-in2m(.136), 0, -in2m(.99));
+        clone1.rotateZ(Math.PI);
+        leftClawA.add(clone1);
+        const clone2 = root.scene.clone();
+        rightClawB.add(clone2);
+        const clone3 = clone1.clone();
+        leftClawB.add(clone3);
         loaded.claws = true;
       });
 
@@ -279,7 +493,7 @@
       cameraMesh.position.set(0, in2m(2.5), in2m(5.5));
       cameraMesh.add(robotCamera);
       robotCamera.lookAt(0, in2m(2.5), -1); // look forward
-      arm1.add(cameraMesh);
+      arm1A.add(cameraMesh);
 
       // load in a can as our object
       const textureLoader = new THREE.TextureLoader();
@@ -297,16 +511,17 @@
       const canGeometry = new THREE.CylinderGeometry(in2m(1.28), in2m(1.28), in2m(4), 8, 1);
       const canMaterial = new THREE.MeshLambertMaterial({color: 0xee7777});
       const cans = [];
-      for (let i = 0; i < 2; i++) {
+      for (let i = 0; i < 16; i++) {
         cans.push(new THREE.Mesh(canGeometry, canMaterial));
         cans[i].castShadow = true;
         cans[i].receiveShadow = true;
-        cans[i].position.set(0, in2m(1.28), 0);
+        cans[i].position.set(in2m(i * 8 - 60), in2m(1.28), in2m(Math.random() * 48 - 24));
         scene.add(cans[i]);
         physx.add(cans[i], {
           mass: 0.5,
           collideGroup: physx.collideGroup.object,
-          collideWith: physx.collideGroup.env | physx.collideGroup.effector | physx.collideGroup.object
+          collideWith: physx.collideGroup.env | physx.collideGroup.effector | physx.collideGroup.object,
+          networkName: `can_${i}`
         });
         physx.get(cans[i]).setFriction(2);
         physx.get(cans[i]).setRollingFriction(5);
@@ -326,12 +541,13 @@
       let clawAngle = 0; // negative values = more open
       let objectGrabbed = false;
       let connection;
+      let multiplayer;
 
       function calcReward() {
-        heading.setFromQuaternion(chassis.quaternion, 'YZX');
+        heading.setFromQuaternion(chassisA.quaternion, 'YZX');
         const clawPosition = new THREE.Vector3(0, 0, -in2m(3.7));
-        clawPosition.applyQuaternion(clawBase.quaternion);
-        clawPosition.add(clawBase.position);
+        clawPosition.applyQuaternion(clawBaseA.quaternion);
+        clawPosition.add(clawBaseA.position);
 
         // choose the closest can to the claw
         let can = cans[0];
@@ -343,20 +559,20 @@
             can = cans[i];
           }
         }
-        
-        const pq_theta = Math.atan2(clawBase.position.x - can.position.x, clawBase.position.z - can.position.z);
+
+        const pq_theta = Math.atan2(clawBaseA.position.x - can.position.x, clawBaseA.position.z - can.position.z);
         let dtheta = pq_theta - heading.y;
         while (dtheta > Math.PI) dtheta -= 2 * Math.PI;
         while (dtheta < -Math.PI) dtheta += 2 * Math.PI;
-        pitch.setFromQuaternion(arm1.quaternion, 'YZX');
+        pitch.setFromQuaternion(arm1A.quaternion, 'YZX');
         const reward = 1 - distance - Math.abs(dtheta) / Math.PI;
 
         connection.setObservationReward([
-          chassis.position.x,
-          -chassis.position.z,
+          chassisA.position.x,
+          -chassisA.position.z,
           heading.y,
           pitch.x,
-          physx.get(arm1).getAngularVelocity().x(),
+          physx.get(arm1A).getAngularVelocity().x(),
           can.position.x,
           -can.position.z,
           distance,
@@ -367,32 +583,26 @@
       }
 
       function onreset() {
-        chassis.position.set(
-          Math.random() * in2m(72) - in2m(36),
-          fullChassisHeight / 2,
-          Math.random() * in2m(72) - in2m(36));
-        p.set(0, fullChassisHeight / 2 - in2m(.5), in2m(-1));
-        p.applyQuaternion(chassis.quaternion);
-        p.add(chassis.position);
-        arm1.position.set(p.x, p.y, p.z);
-        p.set(0, fullChassisHeight / 2 - in2m(2.5), in2m(-1));
-        p.applyQuaternion(chassis.quaternion);
-        p.add(chassis.position);
-        arm2.position.set(p.x, p.y, p.z);
-        p.set(0, fullChassisHeight / 2 - in2m(1.5), in2m(-7 - (3.325 / 2 - .325)));
-        p.applyQuaternion(chassis.quaternion);
-        p.add(chassis.position);
-        clawBase.position.set(p.x, p.y, p.z);
+        // chassisA.position.set(in2m(Math.random() * 72 - 36), fullChassisHeight / 2, in2m(Math.random() * -48 - 24));
+        // p.set(0, fullChassisHeight / 2 - in2m(.5), in2m(-1));
+        // p.applyQuaternion(chassisA.quaternion);
+        // p.add(chassisA.position);
+        // arm1A.position.set(p.x, p.y, p.z);
+        // p.set(0, fullChassisHeight / 2 - in2m(2.5), in2m(-1));
+        // p.applyQuaternion(chassisA.quaternion);
+        // p.add(chassisA.position);
+        // arm2A.position.set(p.x, p.y, p.z);
+        // p.set(0, fullChassisHeight / 2 - in2m(1.5), in2m(-7 - (3.325 / 2 - .325)));
+        // p.applyQuaternion(chassisA.quaternion);
+        // p.add(chassisA.position);
+        // clawBaseA.position.set(p.x, p.y, p.z);
         clawAngle = 0;
 
         for (let i = 0; i < cans.length; i++) {
-          cans[i].position.set(
-            Math.random() * in2m(140) - in2m(70),
-            in2m(1.28),
-            Math.random() * in2m(140) - in2m(70));
-          console.log("Reset the world, new can position:", cans[i].position);
-          objectGrabbed = false;
+          cans[i].position.set(in2m(i * 8 - 60), in2m(1.28), in2m(Math.random() * 48 - 24));
+          cans[i].rotation.set(0, 0, 0);
         }
+        objectGrabbed = false;
 
         physx.reset();
         calcReward();
@@ -405,11 +615,11 @@
         let clawAction = action[2];
 
         // we will have to do "friction" manually
-        heading.setFromQuaternion(chassis.quaternion, 'YZX');
+        heading.setFromQuaternion(chassisA.quaternion, 'YZX');
         const clawPosition = new THREE.Vector3(0, 0, -in2m(3.7));
-        clawPosition.applyQuaternion(clawBase.quaternion);
-        clawPosition.add(clawBase.position);
-        
+        clawPosition.applyQuaternion(clawBaseA.quaternion);
+        clawPosition.add(clawBaseA.position);
+
         let can = cans[0];
         let distance = 100000.;
         for (let i = 0; i < cans.length; i++) {
@@ -420,7 +630,7 @@
           }
         }
 
-        const pq_theta = Math.atan2(clawBase.position.x - can.position.x, clawBase.position.z - can.position.z);
+        const pq_theta = Math.atan2(clawBaseA.position.x - can.position.x, clawBaseA.position.z - can.position.z);
         let dtheta = pq_theta - heading.y;
         while (dtheta > Math.PI) dtheta -= 2 * Math.PI;
         while (dtheta < -Math.PI) dtheta += 2 * Math.PI;
@@ -448,10 +658,10 @@
         }
         
         const radians = clawAngle * Math.PI / 180;
-        leftClaw.rotation.set(0, -radians, 0);
-        rightClaw.rotation.set(0, radians, 0);
+        leftClawA.rotation.set(0, -radians, 0);
+        rightClawA.rotation.set(0, radians, 0);
 
-        pitch.setFromQuaternion(arm1.quaternion, 'YZX');
+        pitch.setFromQuaternion(arm1A.quaternion, 'YZX');
         if (pitch.x <= -0.7 && armAction < 0) {
           armAction = 0;
         } else if (pitch.x >= 0.6 && armAction > 0.1) {
@@ -460,27 +670,28 @@
           armAction = 0.5;
         }
         
-        physx.getTransform(chassis, p, q);
+        physx.getTransform(chassisA, p, q);
         v.set(0, 0, linearCoeff * -(leftAction + rightAction) / 2);
         v.applyQuaternion(q);
         physx.p_.setValue(v.x, v.y, v.z);
-        physx.get(chassis).setLinearVelocity(physx.p_);
+        physx.get(chassisA).setLinearVelocity(physx.p_);
         physx.p_.setValue(0, angularCoeff * (rightAction - leftAction), 0);
-        physx.get(chassis).setAngularVelocity(physx.p_);
+        physx.get(chassisA).setAngularVelocity(physx.p_);
         chassis_arm2.joint.enableAngularMotor(true, armAction * 1.5, 3);
         const dt = physx.step();
 
         if (objectGrabbed) {
-          clawPosition.set(0, 0, -in2m(3.7));
-          clawPosition.applyQuaternion(clawBase.quaternion);
-          clawPosition.add(clawBase.position);
+          clawPosition.set(0, in2m(1), -in2m(3.7));
+          clawPosition.applyQuaternion(clawBaseA.quaternion);
+          clawPosition.add(clawBaseA.position);
           can.position.set(clawPosition.x, clawPosition.y, clawPosition.z);
+          can.quaternion.copy(clawBaseA.quaternion);
           physx.syncTransform(can);
         }
         calcReward();
       };
 
-      function render() {
+      function animate() {
         renderer.render(scene, camera);
       }
 
@@ -492,17 +703,71 @@
         renderer.setSize(width, height);
       });
 
+      let sessionIdAssigned = false;
+      let sessionId = null;
+
       function waitUntilLoaded() {
-        if (loaded.chassis && loaded.clawbase && loaded.claws) {
-          connection = new WSConnection(9999, 640, 360, 0.1, 60);
-          connection.onreset = onreset;
-          connection.onstep = onstep;
-          renderer.setAnimationLoop(render);
+        if (loaded.chassis && loaded.clawbase && loaded.claws && sessionIdAssigned) {
+          if (sessionId === null) {
+            // we are client
+            function swapMeshes(A, B) {
+              const Aname = A.userData.options.networkName;
+              const Bname = B.userData.options.networkName;
+              const Apos = A.position.clone();
+              const Aquat = A.quaternion.clone();
+              const Bpos = B.position.clone();
+              const Bquat = B.quaternion.clone();
+              A.userData.options.networkName = Bname;
+              B.userData.options.networkName = Aname;
+              A.position.copy(Bpos);
+              A.quaternion.copy(Bquat);
+              B.position.copy(Apos);
+              B.quaternion.copy(Aquat);
+              physx.syncTransform(A);
+              physx.syncTransform(B);
+            }
+
+            // start swapping the names and locations
+            swapMeshes(chassisA, chassisB);
+            swapMeshes(arm1A, arm1B);
+            swapMeshes(arm2A, arm2B);
+            swapMeshes(clawBaseA, clawBaseB);
+          }
+          renderer.setAnimationLoop(animate);
+          multiplayer = new NetworkMultiplayer(sessionId, physx, (peerid) => {
+            document.getElementById("valueContainer").innerText = peerid;
+            document.getElementById("peerIdCopy").addEventListener("click", () => {
+              navigator.clipboard.writeText(peerid);
+            });
+            document.getElementById("peerIdDisplay").style.display = "block";
+            connection = new WSConnection(sessionId === null ? 9999 : 9998, 640, 360, 0.1, 60);
+            connection.onreset = onreset;
+            connection.onstep = onstep;
+          });
         } else {
           setTimeout(waitUntilLoaded.bind(this), 500);
         }
       }
       waitUntilLoaded();
+
+      const multiplayerContainer = document.getElementById("multiplayerContainer");
+      document.getElementById("new_session_btn").addEventListener("click", () => {
+        sessionIdAssigned = true;
+        multiplayerContainer.style.display = "none";
+      });
+      document.getElementById("connect_session_btn").addEventListener("click", () => {
+        document.getElementById("menu1").style.display = "none";
+        document.getElementById("menu2").style.display = "block";
+      });
+      document.getElementById("connect_btn").addEventListener("click", () => {
+        sessionId = document.getElementById("peerSessionId").value;
+        sessionIdAssigned = true;
+        multiplayerContainer.style.display = "none";
+      });
+      document.getElementById("back_btn").addEventListener("click", () => {
+        document.getElementById("menu2").style.display = "none";
+        document.getElementById("menu1").style.display = "block";
+      });
 
     </script>
   </body>

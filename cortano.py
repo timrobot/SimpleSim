@@ -1,7 +1,7 @@
 ### Note! This is just a virtual wrapper around the environment to make sure that your code is working.
 ### If you want to make sure that your code works on the real robot, copy over your source code files to the robot.
 
-from environments import TennisBallClawbotEnv
+from environments import TennisBallClawbotEnv, MultiplayerEnv
 import lan
 
 color = None
@@ -36,14 +36,14 @@ class VexController:
     self.keys = keys
 
 class VexV5(TennisBallClawbotEnv):
-  def __init__(self, render=True):
+  def __init__(self, render=True, host=True):
     global env
     if env is not None:
       return
     else:
       env = self
 
-    super().__init__(autolaunch=False)
+    super().__init__(autolaunch=True)
     if render:
       self.render()
     self.motors = [0] * 10

@@ -140,7 +140,8 @@
       const metalMaterial = new THREE.MeshLambertMaterial({color: 0xCFDBE5});
 
       const chassis = new THREE.Group();
-      chassis.position.set(0, fullChassisHeight / 2, 0);
+      chassis.position.set(in2m(Math.random() * 72 - 36), fullChassisHeight / 2, in2m(Math.random() * -48 - 24));
+      chassis.rotateY(Math.PI);
       chassis.castShadow = true;
       chassis.receiveShadow = true;
       scene.add(chassis);
@@ -185,6 +186,7 @@
       arm1.castShadow = true;
       arm1.receiveShadow = true;
       arm1.position.set(0, fullChassisHeight - in2m(.5), in2m(-1));
+      arm1.rotateY(Math.PI);
       scene.add(arm1);
       physx.add(arm1, {
         mass: 0.05,
@@ -195,6 +197,7 @@
       arm2.castShadow = true;
       arm2.receiveShadow = true;
       arm2.position.set(0, fullChassisHeight - in2m(2.5), in2m(-1));
+      arm2.rotateY(Math.PI);
       scene.add(arm2);
       physx.add(arm2, {
         mass: 0.05,
@@ -206,6 +209,7 @@
       clawBase.castShadow = true;
       clawBase.receiveShadow = true;
       clawBase.position.set(0, fullChassisHeight - in2m(1.5), in2m(-7 - (3.325 / 2 - .325)));
+      clawBase.rotateY(Math.PI);
       scene.add(clawBase);
       physx.add(clawBase, {
         mass: 0.1,
@@ -352,10 +356,7 @@
       }
 
       function onreset() {
-        chassis.position.set(
-          Math.random() * in2m(72) - in2m(36),
-          fullChassisHeight / 2,
-          Math.random() * in2m(72) - in2m(36));
+        chassis.position.set(in2m(Math.random() * 72 - 36), fullChassisHeight / 2, in2m(Math.random() * -48 - 24));
         p.set(0, fullChassisHeight / 2 - in2m(.5), in2m(-1));
         p.applyQuaternion(chassis.quaternion);
         p.add(chassis.position);

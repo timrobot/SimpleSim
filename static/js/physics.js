@@ -17,7 +17,7 @@ class AmmoPhysics {
 
     this.T_ = new Ammo.btTransform(); // reusable transformation object
     this.p_ = new Ammo.btVector3(0, 0, 0);
-    this.q_ = new Ammo.btQuaternion(0, 0, 0);
+    this.q_ = new Ammo.btQuaternion(0, 0, 0, 0);
 
     this.collisionConfig = new Ammo.btDefaultCollisionConfiguration();
     this.dispatcher = new Ammo.btCollisionDispatcher(this.collisionConfig);

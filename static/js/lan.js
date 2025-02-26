@@ -98,6 +98,8 @@ class WSConnection {
       } else if (cmd.api === "render") {
         this.requires_render = cmd.value;
         this.ws.send(JSON.stringify("success"));
+      } else if (cmd.api === "multiplayerConnect") {
+        // do something here
       }
     };
 

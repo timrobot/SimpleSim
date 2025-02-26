@@ -15,6 +15,7 @@ from multiprocessing import (
 from ctypes import c_int, c_float, c_bool, c_uint8, c_uint16, c_char
 from datetime import datetime
 import json
+import mimetypes
 
 # shared variables
 frame_shape = (360, 640)
@@ -39,9 +40,16 @@ comms_task = None
 async def handle(request):
   return web.FileResponse(envpath)
 
+mimetypes.add_type('application/x-font-ttf', '.ttf')
 app = web.Application()
 app.router.add_get('/', handle)
-app.router.add_static('/static/', path='./static', name='static')
+app.router.add_static('/static/', path='static', name='static')
+app.router.add_static('/font/',
+                       path='static/font',
+                       name='font')
+app.router.add_static('/js/',
+                       path='static/js',
+                       name='js')
 
 cors = aiohttp_cors.setup(app, defaults={
   "*": aiohttp_cors.ResourceOptions(
