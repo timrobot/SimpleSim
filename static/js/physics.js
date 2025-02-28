@@ -27,13 +27,13 @@ class AmmoPhysics {
     this.clock = clock;
 
     this.parameters = parameters;
-    this.collideGroup = {};
-    this.everyGroup = 0xFF;
+    this.collideGroup = {all: 0x1};
     this.lastCollisions = {};
   }
 
   setCollisionGroups(collisionGroups) {
     this.collideGroup = collisionGroups;
+    this.collideGroup.all = 0xFFFF;
   }
 
   detectCollisions() {

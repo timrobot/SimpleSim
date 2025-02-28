@@ -41,9 +41,9 @@ class VexV5:
     if env is not None:
       return
     elif envname == 'CanClawboxEnv':
-      self.gym_env = CanClawboxEnv()
+      self.gym_env = CanClawboxEnv(autolaunch=True)
     elif envname == 'MultiplayerEnv':
-      self.gym_env = MultiplayerEnv()
+      self.gym_env = MultiplayerEnv(autolaunch=True)
 
     self.motors = [0] * 10
     self.obs, _, __, self.info = self.gym_env.step(self.motors)
