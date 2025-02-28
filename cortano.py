@@ -65,9 +65,9 @@ class VexV5:
     global env
     if env is None:
       if envname == 'CanClawbotEnv':
-        env = CanClawbotEnv(autolaunch=False)
+        env = CanClawbotEnv(autolaunch=True)
       elif envname == 'MultiplayerEnv':
-        env = MultiplayerEnv(autolaunch=False)
+        env = MultiplayerEnv(autolaunch=True)
 
     self.render = render
 
