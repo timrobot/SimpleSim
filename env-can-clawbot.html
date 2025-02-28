@@ -307,7 +307,7 @@
       physx.add(can, {
         mass: 0.5,
         collideGroup: physx.collideGroup.object,
-        collideWith: physx.collideGroup.env | physx.collideGroup.effector
+        collideWith: physx.collideGroup.env | physx.collideGroup.effector | physx.collideGroup.chassis
       });
       physx.get(can).setFriction(2);
       physx.get(can).setRollingFriction(5);

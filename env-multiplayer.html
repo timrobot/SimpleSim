@@ -561,7 +561,7 @@
         physx.add(cans[i], {
           mass: 0.5,
           collideGroup: physx.collideGroup.object,
-          collideWith: physx.collideGroup.env | physx.collideGroup.effector | physx.collideGroup.object,
+          collideWith: physx.collideGroup.env | physx.collideGroup.effector | physx.collideGroup.chassis | physx.collideGroup.object,
           networkName: `can_${i}`
         });
         physx.get(cans[i]).setFriction(2);
