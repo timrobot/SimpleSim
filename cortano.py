@@ -61,13 +61,13 @@ class VexController:
     self.keys = keys
 
 class VexV5:
-  def __init__(self, envname='MultiplayerEnv', render=True):
+  def __init__(self, envname='MultiplayerEnv', render=True, autolaunch=True):
     global env
     if env is None:
       if envname == 'CanClawbotEnv':
-        env = CanClawbotEnv(autolaunch=False)
+        env = CanClawbotEnv(autolaunch=autolaunch)
       elif envname == 'MultiplayerEnv':
-        env = MultiplayerEnv(autolaunch=False)
+        env = MultiplayerEnv(autolaunch=autolaunch)
 
     self.render = render
 
