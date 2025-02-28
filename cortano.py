@@ -98,7 +98,7 @@ class VexV5:
       0, action[0], 0,
       0, action[9], 0,
       np.degrees(_obs[3]), _obs[4], 0,
-      np.degrees(_obs[11]), action[2], _obs[10]
+      np.degrees(_obs[10]), action[2], _obs[9]
     ]
 
     if self.render:
