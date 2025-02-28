@@ -140,7 +140,7 @@
       const metalMaterial = new THREE.MeshLambertMaterial({color: 0xCFDBE5});
 
       const chassis = new THREE.Group();
-      chassis.position.set(in2m(Math.random() * 72 - 36), fullChassisHeight / 2, in2m(Math.random() * -48 - 24));
+      chassis.position.set(in2m(Math.random() * 40 + 10), fullChassisHeight / 2, in2m(Math.random() * -48 - 24));
       chassis.rotateY(Math.PI);
       chassis.castShadow = true;
       chassis.receiveShadow = true;
@@ -291,18 +291,21 @@
       const loadTextureAsMaterial = (uri) => {
         const texture = textureLoader.load(uri);
         texture.colorSpace = THREE.SRGBColorSpace;
+        texture.minFilter = THREE.NearestFilter;
+        texture.magFilter = THREE.NearestFilter;
         return new THREE.MeshLambertMaterial({ map: texture });
       };
       const canMaterial = [
         loadTextureAsMaterial('/static/assets/sidecan_tag16h5_29.png'),
-        loadTextureAsMaterial('/static/assets/topcan.png'),
+        loadTextureAsMaterial('/static/assets/topcan_tag16h5_29.png'),
         loadTextureAsMaterial('/static/assets/btmcan.png'),
       ];
       const canGeometry = new THREE.CylinderGeometry(0.033, 0.033, 0.123, 8, 1);
       const can = new THREE.Mesh(canGeometry, canMaterial);
+      can.rotateY(Math.PI / 2);
       can.castShadow = true;
       can.receiveShadow = true;
-      can.position.set(in2m(Math.random() * 60 - 30), in2m(1.28), in2m(48));
+      can.position.set(chassis.position.x + in2m(Math.random() * 3 - 1.5), in2m(1.28), in2m(Math.random() * 4 - 2));
       scene.add(can);
       physx.add(can, {
         mass: 0.5,
@@ -357,7 +360,7 @@
       }
 
       function onreset() {
-        chassis.position.set(in2m(Math.random() * 72 - 36), fullChassisHeight / 2, in2m(Math.random() * -48 - 24));
+        chassis.position.set(in2m(Math.random() * 40 + 10), fullChassisHeight / 2, in2m(Math.random() * -48 - 24));
         p.set(0, fullChassisHeight / 2 - in2m(.5), in2m(-1));
         p.applyQuaternion(chassis.quaternion);
         p.add(chassis.position);
@@ -372,10 +375,7 @@
         clawBase.position.set(p.x, p.y, p.z);
         clawAngle = 0;
 
-        can.position.set(
-          Math.random() * in2m(140) - in2m(70),
-          in2m(1.28),
-          Math.random() * in2m(140) - in2m(70));
+        can.position.set(chassis.position.x + in2m(Math.random() * 3 - 1.5), in2m(1.28), in2m(Math.random() * 4 - 2));
         console.log("Reset the world, new can position:", can.position);
         objectGrabbed = false;
 

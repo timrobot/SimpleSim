@@ -65,9 +65,9 @@ class VexV5:
     global env
     if env is None:
       if envname == 'CanClawbotEnv':
-        env = CanClawbotEnv(autolaunch=True)
+        env = CanClawbotEnv(autolaunch=False)
       elif envname == 'MultiplayerEnv':
-        env = MultiplayerEnv(autolaunch=True)
+        env = MultiplayerEnv(autolaunch=False)
 
     self.render = render
 
@@ -115,7 +115,7 @@ class VexV5:
     return VexController(env.keys)
   
   @property
-  def motors(self):
+  def motor(self):
     global _motors
     return _motors
   
