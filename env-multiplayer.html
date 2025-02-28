@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simple Robot Sim</title>
+    <title>Simple Robot Sim (Multiplayer)</title>
     <script type="importmap">
       {
         "imports": {
@@ -264,6 +264,16 @@
         collideWith: physx.collideGroup.env | physx.collideGroup.object | physx.collideGroup.adversary,
         geometry: "BoxGeometry",
         parameters: { width: in2m(10), height: fullChassisHeight, depth: in2m(10) },
+        oncollision: (self, other) => {
+          if (other.userData.networkOwner === null) {
+            other.userData.networkOwner = 'this';
+          }
+        },
+        onseparate: (self, other) => {
+          if (other.userData.networkOwner === 'this') {
+            other.userData.networkOwner = null;
+          }
+        },
         networkName: 'chassisA',
         networkOwner: 'this'
       });
@@ -325,6 +335,16 @@
         mass: 0.05,
         collideGroup: physx.collideGroup.arm1,
         collideWith: physx.collideGroup.env | physx.collideGroup.arm2 | physx.collideGroup.adversary,
+        oncollision: (self, other) => {
+          if (other.userData.networkOwner === null) {
+            other.userData.networkOwner = 'this';
+          }
+        },
+        onseparate: (self, other) => {
+          if (other.userData.networkOwner === 'this') {
+            other.userData.networkOwner = null;
+          }
+        },
         networkName: "arm1A",
         networkOwner: 'this'
       });
@@ -346,6 +366,16 @@
         mass: 0.05,
         collideGroup: physx.collideGroup.arm2,
         collideWith: physx.collideGroup.env | physx.collideGroup.arm1 | physx.collideGroup.adversary,
+        oncollision: (self, other) => {
+          if (other.userData.networkOwner === null) {
+            other.userData.networkOwner = 'this';
+          }
+        },
+        onseparate: (self, other) => {
+          if (other.userData.networkOwner === 'this') {
+            other.userData.networkOwner = null;
+          }
+        },
         networkName: "arm2A",
         networkOwner: 'this'
       });
@@ -370,6 +400,16 @@
         collideWith: physx.collideGroup.env | physx.collideGroup.object | physx.collideGroup.adversary,
         geometry: "BoxGeometry",
         parameters: { width: in2m(4), height: in2m(2.65), depth: in2m(3.325) },
+        oncollision: (self, other) => {
+          if (other.userData.networkOwner === null) {
+            other.userData.networkOwner = 'this';
+          }
+        },
+        onseparate: (self, other) => {
+          if (other.userData.networkOwner === 'this') {
+            other.userData.networkOwner = null;
+          }
+        },
         networkName: "clawBaseA",
         networkOwner: 'this'
       });
@@ -489,27 +529,28 @@
 
       const robotCamera = new THREE.PerspectiveCamera(57, 640 / 360, 0.1, 50);
       const cameraGeometry = new THREE.BoxGeometry(in2m(3.7), in2m(.75), in2m(.8));
-      const cameraMesh = new THREE.Mesh(cameraGeometry, metalMaterial);
-      cameraMesh.position.set(0, in2m(2.5), in2m(5.5));
-      cameraMesh.add(robotCamera);
+      const cameraMeshA = new THREE.Mesh(cameraGeometry, metalMaterial);
+      cameraMeshA.position.set(0, in2m(2.5), in2m(5.5));
+      cameraMeshA.add(robotCamera);
       robotCamera.lookAt(0, in2m(2.5), -1); // look forward
-      arm1A.add(cameraMesh);
+      arm1A.add(cameraMeshA);
+      const cameraMeshB = cameraMeshA.clone();
+      arm1B.add(cameraMeshB);
 
       // load in a can as our object
       const textureLoader = new THREE.TextureLoader();
       textureLoader.crossOrigin = 'anonymous';
-      function loadTexture(path) {
-        const filepath = `./static/assets/${path}`;
-        const texture = textureLoader.load(filepath);
+      const loadTextureAsMaterial = (uri) => {
+        const texture = textureLoader.load(uri);
         texture.colorSpace = THREE.SRGBColorSpace;
-        return texture;
-      }
-      const tag29Material = new THREE.MeshLambertMaterial({
-        map: loadTexture(`tag16h5_00029.png`)
-      });
-
-      const canGeometry = new THREE.CylinderGeometry(in2m(1.28), in2m(1.28), in2m(4), 8, 1);
-      const canMaterial = new THREE.MeshLambertMaterial({color: 0xee7777});
+        return new THREE.MeshLambertMaterial({ map: texture });
+      };
+      const canMaterial = [
+        loadTextureAsMaterial('/static/assets/sidecan_tag16h5_29.png'),
+        loadTextureAsMaterial('/static/assets/topcan.png'),
+        loadTextureAsMaterial('/static/assets/btmcan.png'),
+      ];
+      const canGeometry = new THREE.CylinderGeometry(0.033, 0.033, 0.123, 8, 1);
       const cans = [];
       for (let i = 0; i < 16; i++) {
         cans.push(new THREE.Mesh(canGeometry, canMaterial));
@@ -577,7 +618,8 @@
           -can.position.z,
           distance,
           dtheta,
-          objectGrabbed ? 1 : 0
+          objectGrabbed ? 1 : 0,
+          clawAngle * Math.PI / 180
         ], reward);
         connection.render(scene, robotCamera);
       }
@@ -601,6 +643,7 @@
         for (let i = 0; i < cans.length; i++) {
           cans[i].position.set(in2m(i * 8 - 60), in2m(1.28), in2m(Math.random() * 48 - 24));
           cans[i].rotation.set(0, 0, 0);
+          cans[i].userData.networkOwner = null;
         }
         objectGrabbed = false;
 
@@ -635,15 +678,19 @@
         while (dtheta > Math.PI) dtheta -= 2 * Math.PI;
         while (dtheta < -Math.PI) dtheta += 2 * Math.PI;
         if (Math.abs(distance) > in2m(2)) objectGrabbed = false; 
-        if (clawAction > 0) {
+        if (clawAction > 0 && (can.userData.networkOwner === null || can.userData.networkOwner === 'this')) {
           const degrees = dtheta * 180 / Math.PI;
           if (distance < in2m(1.6) &&
               Math.abs(degrees) < Math.abs(clawAngle) &&
               Math.abs(degrees) > (Math.abs(clawAngle) - 20)) {
             objectGrabbed = true;
+            can.userData.networkOwner = 'this';
           }
-        } else if (clawAction <= 0) {
+        } else {
           objectGrabbed = false; // make it simple
+          if (can.userData.networkOwner === 'this') {
+            can.userData.networkOwner = null;
+          }
         }
 
         clawAngle = Math.max(-60, Math.min(0, clawAngle + clawAction * 10));
@@ -684,7 +731,7 @@
           clawPosition.set(0, in2m(1), -in2m(3.7));
           clawPosition.applyQuaternion(clawBaseA.quaternion);
           clawPosition.add(clawBaseA.position);
-          can.position.set(clawPosition.x, clawPosition.y, clawPosition.z);
+          can.position.set(clawPosition.x, clawPosition.y + in2m(0.5), clawPosition.z);
           can.quaternion.copy(clawBaseA.quaternion);
           physx.syncTransform(can);
         }
@@ -708,8 +755,8 @@
 
       function waitUntilLoaded() {
         if (loaded.chassis && loaded.clawbase && loaded.claws && sessionIdAssigned) {
-          if (sessionId === null) {
-            // we are client
+          if (sessionId !== null) {
+            // we are client swapping
             function swapMeshes(A, B) {
               const Aname = A.userData.options.networkName;
               const Bname = B.userData.options.networkName;
@@ -735,7 +782,11 @@
           }
           renderer.setAnimationLoop(animate);
           multiplayer = new NetworkMultiplayer(sessionId, physx, (peerid) => {
-            document.getElementById("valueContainer").innerText = peerid;
+            if (sessionId === null) {
+              document.getElementById("valueContainer").innerText = peerid;
+            } else {
+              document.getElementById("valueContainer").innerText = sessionId;
+            }
             document.getElementById("peerIdCopy").addEventListener("click", () => {
               navigator.clipboard.writeText(peerid);
             });

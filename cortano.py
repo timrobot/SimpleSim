@@ -1,8 +1,8 @@
 ### Note! This is just a virtual wrapper around the environment to make sure that your code is working.
 ### If you want to make sure that your code works on the real robot, copy over your source code files to the robot.
 
-from environments import TennisBallClawbotEnv, MultiplayerEnv
-import lan
+from environments import CanClawboxEnv, MultiplayerEnv
+import numpy as np
 
 color = None
 depth = None
@@ -35,19 +35,20 @@ class VexController:
   def __init__(self, keys):
     self.keys = keys
 
-class VexV5(TennisBallClawbotEnv):
-  def __init__(self, render=True, host=True):
+class VexV5(MultiplayerEnv):
+  def __init__(self, render=True):
     global env
     if env is not None:
       return
     else:
       env = self
 
-    super().__init__(autolaunch=True)
+    super().__init__(autolaunch=False, port=9999, httpport=8765)
     if render:
       self.render()
     self.motors = [0] * 10
-    self.obs, info = self.reset()
+    self.obs, rew, term, info = self.step(self.motors)
+    # self.obs, info = self.reset()
 
     global color, depth
     color = info["color"]
@@ -63,8 +64,8 @@ class VexV5(TennisBallClawbotEnv):
     sensors = [
       0, action[0], 0,
       0, action[9], 0,
-      self.obs[3], self.obs[4], 0,
-      0, action[2], self.obs[-1]
+      np.degrees(self.obs[3]), self.obs[4], 0,
+      np.degrees(self.obs[11]), action[2], self.obs[10]
     ]
 
     global color, depth

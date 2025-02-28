@@ -52,13 +52,14 @@ class Field extends THREE.Group {
     const columnGeometry = new THREE.BoxGeometry(in2m(4), in2m(13.5), in2m(4));
     const columnMaterial = new THREE.MeshLambertMaterial({color: 0xd6d9cc});
     const column = new THREE.Mesh(columnGeometry, columnMaterial);
+    column.position.set(0, in2m(6.75), 0);
     column.castShadow = true;
     column.receiveShadow = true;
     this.add(column);
     physx.add(column, {collideGroup: 1, collideWith: 0xFF});
 
     const black_material = new THREE.MeshLambertMaterial({color: 0x080808});
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 28; i++) {
       const texture = loadTexture(`tag16h5_000${i < 10 ? '0': ''}${i}.png`);
       const tag_material = new THREE.MeshLambertMaterial({map: texture});
       const frame_material = [black_material, black_material, tag_material, black_material, black_material, black_material];
@@ -84,6 +85,22 @@ class Field extends THREE.Group {
       }
       this.add(this.tag16h5[i]);
     }
+
+    this.tag16h5[24].rotateX(Math.PI / 2);
+    this.tag16h5[24].rotateZ(Math.PI);
+    this.tag16h5[24].position.set(0, in2m(12), in2m(-2.25));
+    this.add(this.tag16h5[24]);
+    this.tag16h5[25].rotateX(Math.PI / 2);
+    this.tag16h5[25].rotateZ(Math.PI / 2);
+    this.tag16h5[25].position.set(in2m(-2.25), in2m(12), 0);
+    this.add(this.tag16h5[25]);
+    this.tag16h5[26].rotateX(Math.PI / 2);
+    this.tag16h5[26].position.set(0, in2m(12), in2m(2.25));
+    this.add(this.tag16h5[26]);
+    this.tag16h5[27].rotateX(Math.PI / 2);
+    this.tag16h5[27].rotateZ(-Math.PI / 2);
+    this.tag16h5[27].position.set(in2m(2.25), in2m(12), 0);
+    this.add(this.tag16h5[27]);
   }
 };
 

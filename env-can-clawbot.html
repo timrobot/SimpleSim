@@ -285,32 +285,32 @@
       robotCamera.lookAt(0, in2m(2.5), -1); // look forward
       arm1.add(cameraMesh);
 
-      // load in a ball as our "object"
-      const ball = new THREE.Group();
-      ball.castShadow = true;
-      ball.receiveShadow = true;
-      ball.position.set(0, in2m(1.28), 0);
-      scene.add(ball);
-      const mtlLoader = new MTLLoader();
-      const objLoader = new OBJLoader();
-      mtlLoader.load('/static/assets/tennis_ball_low_poly/tennis_Ball_obj.mtl', (mtl) => {
-        mtl.preload();
-        objLoader.setMaterials(mtl);
-        objLoader.load('/static/assets/tennis_ball_low_poly/tennis_Ball_obj.obj', (root) => {
-          root.children[0].geometry.scale(0.08, 0.08, 0.08);
-          root.position.set(0, in2m(-1.28), 0);
-          ball.add(root);
-        });
-      });
-      physx.add(ball, {
+      // load in a can as our "object"
+      const textureLoader = new THREE.TextureLoader();
+      textureLoader.crossOrigin = 'anonymous';
+      const loadTextureAsMaterial = (uri) => {
+        const texture = textureLoader.load(uri);
+        texture.colorSpace = THREE.SRGBColorSpace;
+        return new THREE.MeshLambertMaterial({ map: texture });
+      };
+      const canMaterial = [
+        loadTextureAsMaterial('/static/assets/sidecan_tag16h5_29.png'),
+        loadTextureAsMaterial('/static/assets/topcan.png'),
+        loadTextureAsMaterial('/static/assets/btmcan.png'),
+      ];
+      const canGeometry = new THREE.CylinderGeometry(0.033, 0.033, 0.123, 8, 1);
+      const can = new THREE.Mesh(canGeometry, canMaterial);
+      can.castShadow = true;
+      can.receiveShadow = true;
+      can.position.set(in2m(Math.random() * 60 - 30), in2m(1.28), in2m(48));
+      scene.add(can);
+      physx.add(can, {
         mass: 0.5,
         collideGroup: physx.collideGroup.object,
-        collideWith: physx.collideGroup.env | physx.collideGroup.effector,
-        geometry: "SphereGeometry",
-        parameters: { radius: in2m(1.28) }
+        collideWith: physx.collideGroup.env | physx.collideGroup.effector
       });
-      physx.get(ball).setFriction(2);
-      physx.get(ball).setRollingFriction(5);
+      physx.get(can).setFriction(2);
+      physx.get(can).setRollingFriction(5);
 
       //// Animation loop
       const p = new THREE.Vector3(0, 0, 0);
@@ -332,8 +332,8 @@
         const clawPosition = new THREE.Vector3(0, 0, -in2m(3.7));
         clawPosition.applyQuaternion(clawBase.quaternion);
         clawPosition.add(clawBase.position);
-        const distance = clawPosition.distanceTo(ball.position);
-        const pq_theta = Math.atan2(clawBase.position.x - ball.position.x, clawBase.position.z - ball.position.z);
+        const distance = clawPosition.distanceTo(can.position);
+        const pq_theta = Math.atan2(clawBase.position.x - can.position.x, clawBase.position.z - can.position.z);
         let dtheta = pq_theta - heading.y;
         while (dtheta > Math.PI) dtheta -= 2 * Math.PI;
         while (dtheta < -Math.PI) dtheta += 2 * Math.PI;
@@ -346,11 +346,12 @@
           heading.y,
           pitch.x,
           physx.get(arm1).getAngularVelocity().x(),
-          ball.position.x,
-          -ball.position.z,
+          can.position.x,
+          -can.position.z,
           distance,
           dtheta,
-          objectGrabbed ? 1 : 0
+          objectGrabbed ? 1 : 0,
+          clawAngle * Math.PI / 180
         ], reward);
         connection.render(scene, robotCamera);
       }
@@ -371,11 +372,11 @@
         clawBase.position.set(p.x, p.y, p.z);
         clawAngle = 0;
 
-        ball.position.set(
+        can.position.set(
           Math.random() * in2m(140) - in2m(70),
           in2m(1.28),
           Math.random() * in2m(140) - in2m(70));
-        console.log("Reset the world, new ball position:", ball.position);
+        console.log("Reset the world, new can position:", can.position);
         objectGrabbed = false;
 
         physx.reset();
@@ -393,8 +394,8 @@
         const clawPosition = new THREE.Vector3(0, 0, -in2m(3.7));
         clawPosition.applyQuaternion(clawBase.quaternion);
         clawPosition.add(clawBase.position);
-        const distance = clawPosition.distanceTo(ball.position);
-        const pq_theta = Math.atan2(clawBase.position.x - ball.position.x, clawBase.position.z - ball.position.z);
+        const distance = clawPosition.distanceTo(can.position);
+        const pq_theta = Math.atan2(clawBase.position.x - can.position.x, clawBase.position.z - can.position.z);
         let dtheta = pq_theta - heading.y;
         while (dtheta > Math.PI) dtheta -= 2 * Math.PI;
         while (dtheta < -Math.PI) dtheta += 2 * Math.PI;
@@ -413,12 +414,12 @@
         clawAngle = Math.max(-60, Math.min(0, clawAngle + clawAction * 10));
         if (objectGrabbed) {
           clawAngle = Math.min(clawAngle, -10.05);
-          // todo: instead of being kinematic, perhaps attach the ball as a fixed joint to
+          // todo: instead of being kinematic, perhaps attach the can as a fixed joint to
           // the clawbase
           // KINEMATIC https://pybullet.org/Bullet/BulletFull/classbtCollisionObject.html
-          physx.get(ball).setCollisionFlags(2);
+          physx.get(can).setCollisionFlags(2);
         } else {
-          physx.get(ball).setCollisionFlags(0);
+          physx.get(can).setCollisionFlags(0);
         }
         
         const radians = clawAngle * Math.PI / 180;
@@ -448,8 +449,9 @@
           clawPosition.set(0, 0, -in2m(3.7));
           clawPosition.applyQuaternion(clawBase.quaternion);
           clawPosition.add(clawBase.position);
-          ball.position.set(clawPosition.x, clawPosition.y, clawPosition.z);
-          physx.syncTransform(ball);
+          can.position.set(clawPosition.x, clawPosition.y + in2m(0.5), clawPosition.z);
+          can.quaternion.copy(clawBase.quaternion);
+          physx.syncTransform(can);
         }
         calcReward();
       };

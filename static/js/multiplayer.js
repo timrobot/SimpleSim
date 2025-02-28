@@ -27,7 +27,7 @@ class NetworkMultiplayer {
     this.peerid = null;
 
     this.tracked = {};
-    for (const body of physx.bodies) {
+    for (const [uuid, body] of Object.entries(physx.bodies)) {
       if (!body.userData.options.networkName) continue;
       // network owner can be
       // - null: no one owns it, but host updates their positions
@@ -39,9 +39,6 @@ class NetworkMultiplayer {
       // revoked and therefore reset to the host's information of where the object is located
       body.userData.networkOwner = body.userData.options.networkOwner || null;
       this.tracked[body.userData.options.networkName] = body;
-    }
-    for (const [name, item] of Object.entries(this.tracked)) {
-      console.log('tracking:', name);
     }
 
     this.onGenerate = onGenerate;
@@ -73,7 +70,7 @@ class NetworkMultiplayer {
         this.onConnect(this.connection.peer);
         this.updateTask = setInterval((() => {
           this.connection.send(JSON.stringify(this.sendData(this.connection.peer)));
-        }).bind(this), 10); // 10ms = 100fps
+        }).bind(this), 16); // 16ms = 60fps
       });
       this.connection.on('data', (data) => {
         this.onData(this.connection.peer, JSON.parse(data));
@@ -140,7 +137,6 @@ class NetworkMultiplayer {
       }
     }
 
-    // push a set of differences to the sendData() hook
     return data;
   }
 
@@ -151,16 +147,16 @@ class NetworkMultiplayer {
     for (const [name, item] of Object.entries(data)) {
       const mesh = this.tracked[name];
       if (item.hasOwnProperty('networkOwner')) {
-        if ((!this.isHost && item.networkOwner !== null && item.networkOwner !== this.peerid) ||          // override any acquire
-            (!this.isHost && item.networkOwner === null && mesh.userData.networkOwner !== this.peerid) || // receive update from host if not acquired
-            ( this.isHost && item.networkOwner === peerid && mesh.userData.networkOwner === peerid) ||  // update from client
-            ( this.isHost && item.networkOwner === peerid && mesh.userData.networkOwner === null) ||    // acquire from client
-            ( this.isHost && item.networkOwner === null && mesh.userData.networkOwner === peerid)) {    // unacquire from client
+        if ((!this.isHost && item.networkOwner !== null   && item.networkOwner !== this.peerid) ||          // host.acquire()/.update()
+            (!this.isHost && item.networkOwner === null   && mesh.userData.networkOwner !== 'this') ||      // host.release()
+            ( this.isHost && item.networkOwner === peerid && mesh.userData.networkOwner === null) ||        // client.acquire()
+            ( this.isHost && item.networkOwner === peerid && mesh.userData.networkOwner === peerid) ||      // client.update()
+            ( this.isHost && item.networkOwner === null   && mesh.userData.networkOwner === peerid)) {      // client.release()
           mesh.userData.networkOwner = item.networkOwner;
+          const rigidbody = mesh.userData.rigidbody;
           if (item.hasOwnProperty('position')) { 
             mesh.position.set(...item.position);
             mesh.quaternion.copy(new THREE.Quaternion(...item.quaternion));
-            const rigidbody = mesh.userData.rigidbody;
             this.T_.setIdentity();
             this.p_.setValue(...item.position);
             this.T_.setOrigin(this.p_);

@@ -1,5 +1,3 @@
-// import Ammo from '/static/js/ammo.js';
-
 const STATE = { DISABLE_DEACTIVATION : 4 };
 
 class Joint {
@@ -12,7 +10,7 @@ class Joint {
 
 class AmmoPhysics {
   constructor(clock, parameters={}) {
-    this.bodies = []; // THREE.js mesh objects
+    this.bodies = {}; // THREE.js mesh objects
     this.joints = [];
 
     this.T_ = new Ammo.btTransform(); // reusable transformation object
@@ -31,14 +29,16 @@ class AmmoPhysics {
     this.parameters = parameters;
     this.collideGroup = {};
     this.everyGroup = 0xFF;
+    this.lastCollisions = {};
   }
 
   setCollisionGroups(collisionGroups) {
     this.collideGroup = collisionGroups;
   }
 
-  detectCollision() {
+  detectCollisions() {
     const numManifolds = this.dispatcher.getNumManifolds();
+    const currCollisions = {};
     for (let i = 0; i < numManifolds; i++) {
       const contactManifold = this.dispatcher.getManifoldByIndexInternal(i);
       const numContacts = contactManifold.getNumContacts();
@@ -64,15 +64,42 @@ class AmmoPhysics {
 
       if (options0.collideGroup === 1 || options1.collideGroup === 1) continue;
 
-      // console.log(`Collision detected:`, collideGroup0, collideGroup1);
+      console.log(`Collision detected:`, options0.collideGroup, options1.collideGroup);
       // run the collision callback handler of the object
-      if (options0.collisionCallback) {
-        options0.collisionCallback(mesh1);
+      if (options0.oncollision) {
+        options0.oncollision(mesh0, mesh1);
       }
-      if (options1.collisionCallback) {
-        options1.collisionCallback(mesh0);
+      if (options1.oncollision) {
+        options1.oncollision(mesh1, mesh0);
+      }
+      if (!currCollisions.hasOwnProperty(mesh0.uuid)) {
+        currCollisions[mesh0.uuid] = {};
+      }
+      if (!currCollisions.hasOwnProperty(mesh1.uuid)) {
+        currCollisions[mesh1.uuid] = {};
+      }
+      currCollisions[mesh0.uuid][mesh1.uuid] = mesh1;
+      currCollisions[mesh1.uuid][mesh0.uuid] = mesh0;
+    }
+
+    for (const [src, target] of Object.entries(this.lastCollisions)) {
+      if (!currCollisions.hasOwnProperty(src)) {
+        for (const [uuid, mesh] of Object.entries(target)) {
+          if (mesh.userData.options.onseparate) {
+            mesh.userData.options.onseparate(mesh, this.bodies[src]);
+          }
+        }
+      } else {
+        const intersect = currCollisions[src];
+        for (const [uuid, mesh] of Object.entries(target)) {
+          if (mesh.userData.options.onseparate && !intersect.hasOwnProperty(uuid)) {
+            mesh.userData.options.onseparate(mesh, this.bodies[src]);
+          }
+        }
       }
     }
+
+    this.lastCollisions = currCollisions;
   }
 
   add(mesh, options) {
@@ -128,7 +155,7 @@ class AmmoPhysics {
     rigidbody.threeObject = mesh; // add it back to the Ammo.js rigidbody for use in collision detection
     mesh.userData.options = options;
     if (options.requires_sync !== false) {
-      this.bodies.push(mesh);
+      this.bodies[mesh.uuid] = mesh;
     }
 
     Ammo.destroy(rigidbodyInfo);
@@ -232,7 +259,7 @@ class AmmoPhysics {
     const deltaTime = dt || this.clock.getDelta();
 
     // apply physics properties
-    for (const body of this.bodies) {
+    for (const [uuid, body] of Object.entries(this.bodies)) {
       const rigidbody = body.userData.rigidbody;
       if (this.parameters.angularDamping) {
         const angvel = rigidbody.getAngularVelocity();
@@ -247,7 +274,7 @@ class AmmoPhysics {
 
     this.world.stepSimulation(deltaTime, 20);
 
-    for (const body of this.bodies) {
+    for (const [uuid, body] of Object.entries(this.bodies)) {
       const rigidbody = body.userData.rigidbody;
       let motionState = rigidbody.getMotionState();
       if (motionState) {
@@ -259,7 +286,7 @@ class AmmoPhysics {
       }
     }
 
-    this.detectCollision();
+    this.detectCollisions();
 
     return deltaTime;
   }
@@ -271,7 +298,7 @@ class AmmoPhysics {
     }
     this.joints = [];
 
-    for (const body of this.bodies) {
+    for (const [uuid, body] of Object.entries(this.bodies)) {
       this.syncTransform(body);
       this.p_.setValue(0, 0, 0);
       body.userData.rigidbody.setLinearVelocity(this.p_);
