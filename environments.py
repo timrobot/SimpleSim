@@ -268,7 +268,7 @@ class ThreeSimEnv:
           self.axes, self.axeslen, self.btns, self.btnslen, self.hats, self.hatslen))
       self.ui_task.start()
   
-class CanClawboxEnv(ThreeSimEnv):
+class CanClawbotEnv(ThreeSimEnv):
   def __init__(self, port=9999, httpport=8765, autolaunch=True):
     observation_space = namedtuple('Box', ['high', 'low', 'shape'])
     observation_space.shape = (10,)
@@ -278,7 +278,7 @@ class CanClawboxEnv(ThreeSimEnv):
     action_space.shape = (10,)
     action_space.low = [-1.0] * action_space.shape[0]
     action_space.high = [1.0] * action_space.shape[0]
-    super(CanClawboxEnv, self).__init__('./env-can-clawbot.html', observation_space, action_space, port, httpport, autolaunch)
+    super(CanClawbotEnv, self).__init__('./env-can-clawbot.html', observation_space, action_space, port, httpport, autolaunch)
   
 class PendulumEnv(ThreeSimEnv):
   def __init__(self, port=9998, httpport=8764, autolaunch=True):

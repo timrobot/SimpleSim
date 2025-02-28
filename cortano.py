@@ -1,7 +1,7 @@
 ### Note! This is just a virtual wrapper around the environment to make sure that your code is working.
 ### If you want to make sure that your code works on the real robot, copy over your source code files to the robot.
 
-from environments import CanClawboxEnv, MultiplayerEnv
+from environments import CanClawbotEnv, MultiplayerEnv
 import numpy as np
 
 pose = (0, 0, 0)
@@ -64,10 +64,10 @@ class VexV5:
   def __init__(self, envname='MultiplayerEnv', render=True):
     global env
     if env is None:
-      if envname == 'CanClawboxEnv':
-        env = CanClawboxEnv(autolaunch=True)
+      if envname == 'CanClawbotEnv':
+        env = CanClawbotEnv(autolaunch=False)
       elif envname == 'MultiplayerEnv':
-        env = MultiplayerEnv(autolaunch=True)
+        env = MultiplayerEnv(autolaunch=False)
 
     self.render = render
 
@@ -144,3 +144,16 @@ class VexV5:
         _type_: _description_
     """
     return env.reset()
+  
+  @property
+  def obs(self):
+    return _obs
+  @property
+  def rew(self):
+    return _rew
+  @property
+  def term(self):
+    return _term
+  @property
+  def info(self):
+    return _info
