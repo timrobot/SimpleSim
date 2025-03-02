@@ -341,7 +341,7 @@
         while (dtheta > Math.PI) dtheta -= 2 * Math.PI;
         while (dtheta < -Math.PI) dtheta += 2 * Math.PI;
         pitch.setFromQuaternion(arm1.quaternion, 'YZX');
-        const reward = 1 - distance - Math.abs(dtheta) / Math.PI;
+        const reward = 1 - distance - Math.abs(dtheta) / Math.PI + objectGrabbed * 5;
 
         connection.setObservationReward([
           chassis.position.x,
@@ -361,21 +361,31 @@
 
       function onreset() {
         chassis.position.set(in2m(Math.random() * 40 + 10), fullChassisHeight / 2, in2m(Math.random() * -48 - 24));
+        chassis.quaternion.set(0, 0, 0, 1);
+        chassis.rotateY(Math.PI);
         p.set(0, fullChassisHeight / 2 - in2m(.5), in2m(-1));
         p.applyQuaternion(chassis.quaternion);
         p.add(chassis.position);
         arm1.position.set(p.x, p.y, p.z);
+        arm1.quaternion.set(0, 0, 0, 1);
+        arm1.rotateY(Math.PI);
         p.set(0, fullChassisHeight / 2 - in2m(2.5), in2m(-1));
         p.applyQuaternion(chassis.quaternion);
         p.add(chassis.position);
         arm2.position.set(p.x, p.y, p.z);
+        arm2.quaternion.set(0, 0, 0, 1);
+        arm2.rotateY(Math.PI);
         p.set(0, fullChassisHeight / 2 - in2m(1.5), in2m(-7 - (3.325 / 2 - .325)));
         p.applyQuaternion(chassis.quaternion);
         p.add(chassis.position);
         clawBase.position.set(p.x, p.y, p.z);
+        clawBase.quaternion.set(0, 0, 0, 1);
+        clawBase.rotateY(Math.PI);
         clawAngle = 0;
 
         can.position.set(chassis.position.x + in2m(Math.random() * 3 - 1.5), in2m(1.28), in2m(Math.random() * 4 - 2));
+        can.quaternion.copy(clawBase.quaternion);
+        can.rotateY(Math.PI / 2);
         console.log("Reset the world, new can position:", can.position);
         objectGrabbed = false;
 

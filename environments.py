@@ -271,7 +271,7 @@ class ThreeSimEnv:
 class CanClawbotEnv(ThreeSimEnv):
   def __init__(self, port=9999, httpport=8765, autolaunch=True):
     observation_space = namedtuple('Box', ['high', 'low', 'shape'])
-    observation_space.shape = (10,)
+    observation_space.shape = (11,)
     observation_space.low = [-np.inf] * observation_space.shape[0]
     observation_space.high = [np.inf] * observation_space.shape[0]
     action_space = namedtuple('Box', ['high', 'low', 'shape'])
@@ -295,7 +295,7 @@ class PendulumEnv(ThreeSimEnv):
 class MultiplayerEnv(ThreeSimEnv):
   def __init__(self, port=9999, httpport=8765, autolaunch=True):
     observation_space = namedtuple('Box', ['high', 'low', 'shape'])
-    observation_space.shape = (6,)
+    observation_space.shape = (11,)
     observation_space.low = [-np.inf] * observation_space.shape[0]
     observation_space.high = [np.inf] * observation_space.shape[0]
     action_space = namedtuple('Box', ['high', 'low', 'shape'])
