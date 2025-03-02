@@ -48,7 +48,7 @@ class RealsenseCamera:
     elif not _sensor_read_active:
       global _motors
       if not env:
-        env = CanClawboxEnv(autolaunch=True) # we dont care about multiplayer here
+        env = CanClawbotEnv(autolaunch=True) # we dont care about multiplayer here
         env.render()
         _motors = [0] * env.action_space.shape[0]
       clawbot_control()
@@ -61,13 +61,13 @@ class VexController:
     self.keys = keys
 
 class VexV5:
-  def __init__(self, envname='MultiplayerEnv', render=True, autolaunch=True):
+  def __init__(self, envname='MultiplayerEnv', render=True, autolaunch=True, port=9999, httpport=8765):
     global env
     if env is None:
       if envname == 'CanClawbotEnv':
-        env = CanClawbotEnv(autolaunch=autolaunch)
+        env = CanClawbotEnv(autolaunch=autolaunch, port=port, httpport=httpport)
       elif envname == 'MultiplayerEnv':
-        env = MultiplayerEnv(autolaunch=autolaunch)
+        env = MultiplayerEnv(autolaunch=autolaunch, port=port, httpport=httpport)
 
     self.render = render
 
