@@ -1,31 +1,16 @@
 ### Note! This is just a virtual wrapper around the environment to make sure that your code is working.
 ### If you want to make sure that your code works on the real robot, copy over your source code files to the robot.
 
-from environments import CanClawbotEnv, MultiplayerEnv
+### Note! This is just a virtual wrapper around the environment to make sure that your code is working.
+### If you want to make sure that your code works on the real robot, copy over your source code files to the robot.
+
+from environments import MultiplayerEnv
 import numpy as np
 
+color = None
+depth = None
 pose = (0, 0, 0)
 env = None
-
-_camera_read_active = False
-_sensor_read_active = False
-_running_in_play = False
-
-_color = None
-_depth = None
-_obs = None
-_rew = 0.0
-_term = False
-_info = None
-_motors = None
-
-def clawbot_control():
-  global _motors
-  motors = [x / 100. for x in _motors]
-  action = [motors[0], 0, motors[2], 0, 0, 0, 0, motors[7], 0, -motors[9]]
-  global _obs, _rew, _term, _info
-  _obs, _rew, _term, _info = env.step(action)
-  return action
 
 class RealsenseCamera:
   def __init__(self):
@@ -37,123 +22,73 @@ class RealsenseCamera:
     self.cy = 180
     self.depth_scale = 0.001
 
-  def __del__(self):
-    global env
-    env.stop()
-
   def read(self):
-    global _color, _depth, env, _camera_read_active, _sensor_read_active
-    if not _camera_read_active:
-      _camera_read_active = True
-    elif not _sensor_read_active:
-      global _motors
-      if not env:
-        env = CanClawbotEnv(autolaunch=True) # we dont care about multiplayer here
-        env.render()
-        _motors = [0] * env.action_space.shape[0]
-      clawbot_control()
-      _color = _info['color']
-      _depth = _info['depth']
-    return _color, _depth
+    global color, depth, env
+    if not env._camera_read_active:
+      env._camera_read_active = True
+    elif not env._sensor_read_active:
+      motors = [x / 100. for x in env.motors]
+      action = [motors[0], 0, motors[2], 0, 0, 0, 0, motors[7], 0, -motors[9]]
+      env.obs, _, __, info = env.step(action)
+      color = info["color"]
+      depth = info["depth"]
+    return color, depth
   
 class VexController:
   def __init__(self, keys):
     self.keys = keys
 
-class VexV5:
-  def __init__(self, envname='MultiplayerEnv', render=True, autolaunch=True, port=9999, httpport=8765):
+class VexV5(MultiplayerEnv):
+  def __init__(self, render=True, autolaunch=True, port=9999, httpport=8765):
     global env
-    if env is None:
-      if envname == 'CanClawbotEnv':
-        env = CanClawbotEnv(autolaunch=autolaunch, port=port, httpport=httpport)
-      elif envname == 'MultiplayerEnv':
-        env = MultiplayerEnv(autolaunch=autolaunch, port=port, httpport=httpport)
+    if env is not None:
+      return
+    else:
+      env = self
 
-    self.render = render
-
-    global _motors
-    _motors = [0] * env.action_space.shape[0]
-    clawbot_control()
+    super().__init__(autolaunch=autolaunch, port=port, httpport=httpport)
     if render:
-      env.render()
-      global _color, _depth, _info
-      if _color is None:
-        _color = _info['color']
-        _depth = _info['depth']
+      self.render()
+    self.motor = [0] * 10
+    self.obs, info = self.reset()
 
-  def __del__(self):
-    global env
-    env.stop()
-    
+    global color, depth
+    color = info["color"]
+    depth = info["depth"]
+    self._camera_read_active = False
+    self._sensor_read_active = False
+    self._running_in_play = False
+
   def read(self):
-    """Return sensor values and battery life
-
-    Returns:
-        sensors: list of sensors
-        battery: battery life
-    """
-    action = clawbot_control()
-    global _obs
+    motors = [x / 100. for x in self.motor]
+    action = [motors[0], 0, motors[2], 0, 0, 0, 0, motors[7], 0, -motors[9]]
+    self.obs, rew, term, info = self.step(action)
     sensors = [
       0, action[0], 0,
       0, action[9], 0,
-      np.degrees(_obs[3]), _obs[4], 0,
-      np.degrees(_obs[10]), action[2], _obs[9]
+      np.degrees(self.obs[3]), self.obs[4], 0,
+      np.degrees(self.obs[10]), action[2], self.obs[9]
     ]
 
-    if self.render:
-      global _color, _depth, _info
-      _color = _info['color']
-      _depth = _info['depth']
+    global color, depth
+    color = info["color"]
+    depth = info["depth"]
 
-    global _sensor_read_active
-    _sensor_read_active = True
+    self._sensor_read_active = True
     return sensors, 100
   
   @property
   def controller(self):
-    return VexController(env.keys)
-  
-  @property
-  def motor(self):
-    global _motors
-    return _motors
+    return VexController(super().keys)
   
   def running(self):
-    """Return whether or not robot is up and running.
-
-    Returns:
-        _type_: _description_
-    """
-    global env, _camera_read_active, _sensor_read_active, _running_in_play
-    r = env.running()
-    if not _running_in_play:
-      _running_in_play = True
-    elif not _camera_read_active and not _sensor_read_active:
-      clawbot_control()
-      if self.render:
-        global _color, _depth, _info
-        _color = _info['color']
-        _depth = _info['depth']
+    self._running_in_play = True
+    r = super().running()
+    global color, depth, env
+    if not self._running_in_play:
+      self._running_in_play = True
+    elif not self._camera_read_active and not self._sensor_read_active:
+      motors = [x / 100. for x in self.motor]
+      action = [motors[0], 0, motors[2], 0, 0, 0, 0, motors[7], 0, -motors[9]]
+      self.obs, _, __, ___ = self.step(action)
     return r
-  
-  def reset(self):
-    """Hidden function for simulation only. Do not use on real robot.
-
-    Returns:
-        _type_: _description_
-    """
-    return env.reset()
-  
-  @property
-  def obs(self):
-    return _obs
-  @property
-  def rew(self):
-    return _rew
-  @property
-  def term(self):
-    return _term
-  @property
-  def info(self):
-    return _info
