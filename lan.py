@@ -16,6 +16,11 @@ from ctypes import c_int, c_float, c_bool, c_uint8, c_uint16, c_char
 from datetime import datetime
 import json
 import mimetypes
+import psutil
+import subprocess
+import platform
+import os
+import signal
 
 # shared variables
 frame_shape = (360, 640)
@@ -146,9 +151,58 @@ def comms_worker(path, port, httpport, run, cbuf, dbuf, flock, cbuf2, cam2_en, f
     main_loop.run_until_complete(main_loop.shutdown_asyncgens())
     main_loop.close()
 
+def kill_all_processes_by_port(port):
+  killed_any = False
+
+  if platform.system() == 'Windows':
+    def kill_process(proc):
+        print(f"Killing process with PID {proc.pid}")
+        proc.kill()
+
+    def kill_process_and_children(proc):
+      children = proc.children(recursive=True)
+      for child in children:
+          kill_process(child)
+
+      kill_process(proc)
+
+    for proc in psutil.process_iter(['pid', 'name', 'connections']):
+      if not proc.info['connections']: continue
+      for conn in proc.info['connections']:
+        print(conn)
+        if conn.laddr.port == port:
+          try:
+            print(f"Found process with PID {proc.pid} and name {proc.info['name']}")
+            kill_process_and_children(proc)
+            killed_any = True
+
+          except (PermissionError, psutil.AccessDenied) as e:
+            print(f"Unable to kill process {proc.pid}. The process might be running as another user or root. Try again with sudo")
+            print(str(e))
+
+          except Exception as e:
+            print(f"Error killing process {proc.pid}: {str(e)}")
+
+  elif platform.system() == 'Darwin' or platform.system() == 'Linux':
+    command = f"netstat -tlnp | grep {port}"
+    c = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr = subprocess.PIPE)
+    stdout, stderr = c.communicate()
+    proc = stdout.decode().strip().split(' ')[-1]
+    try:
+      pid = int(proc.split('/')[0])
+      os.kill(pid, signal.SIGKILL)
+      killed_any = True
+    except Exception as e:
+      pass
+
+  return killed_any
+
 def start(path, port=9999, httpport=8765):
   global comms_task, envpath
   global color_buf, depth_buf, color2_buf
+
+  kill_all_processes_by_port(httpport)
+  kill_all_processes_by_port(port)
 
   color_buf = RawArray(c_uint8, frame_shape[0] * frame_shape[1] * 3)
   depth_buf = RawArray(c_uint8, frame_shape[0] * frame_shape[1] * 2)
