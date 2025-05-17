@@ -45,13 +45,9 @@ comms_task = None
 async def handle(request):
   return web.FileResponse(envpath)
 
-mimetypes.add_type('application/x-font-ttf', '.ttf')
 app = web.Application()
 app.router.add_get('/', handle)
 app.router.add_static('/static/', path='static', name='static')
-app.router.add_static('/font/',
-                       path='static/font',
-                       name='font')
 app.router.add_static('/js/',
                        path='static/js',
                        name='js')

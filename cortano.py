@@ -1,9 +1,6 @@
 ### Note! This is just a virtual wrapper around the environment to make sure that your code is working.
 ### If you want to make sure that your code works on the real robot, copy over your source code files to the robot.
 
-### Note! This is just a virtual wrapper around the environment to make sure that your code is working.
-### If you want to make sure that your code works on the real robot, copy over your source code files to the robot.
-
 from environments import MultiplayerEnv
 import numpy as np
 
