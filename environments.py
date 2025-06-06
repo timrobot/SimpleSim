@@ -8,8 +8,6 @@ else:
   import pygame
 from multiprocessing import (
   Process,
-  Lock,
-  Array,
   RawArray,
   Value
 )
@@ -24,23 +22,20 @@ from collections import namedtuple
 def _depth2rgb(depth):
   return cv2.applyColorMap(np.clip(np.sqrt(depth) * 4, 0, 255).astype(np.uint8), cv2.COLORMAP_HSV)
 
-def _ctk_interface(key_values, color_buf, depth_buf, color2_buf):
+def _ctk_interface(key_values, color_buf, depth_buf):
   ctk.set_appearance_mode("Dark")
   ctk.set_default_color_theme("blue")
   app = ctk.CTk()
-  app.geometry("1600x900")
+  app.geometry("1340x400")
 
   h, w = lan.frame_shape
   color_np = cv2.cvtColor(np.frombuffer(color_buf, np.uint8).reshape((h, w, 3)), cv2.COLOR_RGB2BGR)
   depth_np = np.frombuffer(depth_buf, np.uint16).reshape((h, w))
-  color2_np = np.frombuffer(color2_buf, np.uint8).reshape((h, w, 3))
 
   depth_image = Image.fromarray(_depth2rgb(depth_np))
   color_image = Image.fromarray(color_np)
-  color2_image = Image.fromarray(color2_np)
   color_photo = ImageTk.PhotoImage(image=color_image)
   depth_photo = ImageTk.PhotoImage(image=depth_image)
-  color2_photo = ImageTk.PhotoImage(image=color2_image)
 
   color_canvas = ctk.CTkCanvas(app, width=lan.frame_shape[1], height=lan.frame_shape[0])
   color_canvas.place(x=20, y=20)
@@ -48,9 +43,6 @@ def _ctk_interface(key_values, color_buf, depth_buf, color2_buf):
   depth_canvas = ctk.CTkCanvas(app, width=lan.frame_shape[1], height=lan.frame_shape[0])
   depth_canvas.place(x=680, y=20)
   canvas_depth_object = depth_canvas.create_image(0, 0, anchor=ctk.NW, image=depth_photo)
-  color2_canvas = ctk.CTkCanvas(app, width=lan.frame_shape[1], height=lan.frame_shape[0])
-  color2_canvas.place(x=20, y=400)
-  canvas_color2_object = color2_canvas.create_image(0, 0, anchor=ctk.NW, image=color2_photo)
 
   def animate():
     app.after(8, animate)
@@ -58,19 +50,12 @@ def _ctk_interface(key_values, color_buf, depth_buf, color2_buf):
     depth_image = Image.fromarray(_depth2rgb(depth_np))
     color_np = cv2.cvtColor(np.frombuffer(color_buf, np.uint8).reshape((h, w, 3)), cv2.COLOR_RGB2BGR)
     color_image = Image.fromarray(color_np)
-    c2 = lan.cam2_enable.value
-    if c2:
-      color2_image = Image.frombuffer('RGB', (w, h), color_buf, 'raw')
 
     color_photo.paste(color_image)
     depth_photo.paste(depth_image)
-    if c2:
-      color2_photo.paste(color2_image)
 
     color_canvas.itemconfig(canvas_color_object, image=color_photo)
     depth_canvas.itemconfig(canvas_depth_object, image=depth_photo)
-    if c2:
-      color2_canvas.itemconfig(canvas_color2_object, image=color2_photo)
 
   keycodes = {}
   keyrelease = {}
@@ -99,16 +84,15 @@ def _ctk_interface(key_values, color_buf, depth_buf, color2_buf):
   lan.stop()
   sys.exit(0)
 
-def _pygame_interface(key_values, color_buf, depth_buf, color2_buf,
+def _pygame_interface(key_values, color_buf, depth_buf,
     gamepad_axes=None, axes_len=None, gamepad_btns=None, btns_len=None, gamepad_hats=None, hats_len=None):
   pygame.init()
-  screen = pygame.display.set_mode((1600, 900))
+  screen = pygame.display.set_mode((1340, 400))
   clock = pygame.time.Clock()
 
   h, w = lan.frame_shape
   color_np = np.frombuffer(color_buf, np.uint8).reshape((h, w, 3))
   depth_np = np.frombuffer(depth_buf, np.uint16).reshape((h, w))
-  color2_np = np.frombuffer(color2_buf, np.uint8).reshape((h, w, 3))
 
   gamepad = None
   if pygame.joystick.get_count() > 0:
@@ -151,11 +135,9 @@ def _pygame_interface(key_values, color_buf, depth_buf, color2_buf,
 
     color_surf = pygame.image.frombuffer(color_np.tobytes(), (w, h), "BGR")
     depth_surf = pygame.image.frombuffer(_depth2rgb(depth_np).tobytes(), (w, h), "RGB")
-    color2_surf = pygame.image.frombuffer(color2_np.tobytes(), (w, h), "BGR")
 
     screen.blit(color_surf, (20, 20))
     screen.blit(depth_surf, (680, 20))
-    screen.blit(color2_surf, (20, 400))
 
     pygame.display.update()
     clock.tick(60)
@@ -261,10 +243,10 @@ class ThreeSimEnv:
       while lan.color_buf is None:
         continue
       if platform.system() == "Darwin":
-        self.ui_task = Process(target=_ctk_interface, args=(self.keyboard_buf, lan.color_buf, lan.depth_buf, lan.color2_buf))
+        self.ui_task = Process(target=_ctk_interface, args=(self.keyboard_buf, lan.color_buf, lan.depth_buf))
       else:
         self.ui_task = Process(target=_pygame_interface, args=(
-          self.keyboard_buf, lan.color_buf, lan.depth_buf, lan.color2_buf,
+          self.keyboard_buf, lan.color_buf, lan.depth_buf,
           self.axes, self.axeslen, self.btns, self.btnslen, self.hats, self.hatslen))
       self.ui_task.start()
   
