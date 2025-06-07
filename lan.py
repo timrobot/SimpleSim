@@ -153,22 +153,15 @@ def kill_all_processes_by_port(port):
 
       kill_process(proc)
 
-    for proc in psutil.process_iter(['pid', 'name', 'connections']):
-      if not proc.info['connections']: continue
-      for conn in proc.info['connections']:
-        print(conn)
-        if conn.laddr.port == port:
-          try:
+    for proc in psutil.process_iter(['pid', 'name']):
+      try:
+        connections = proc.net_connections()
+        for conn in connections:
+          if conn.laddr.port == port:
             print(f"Found process with PID {proc.pid} and name {proc.info['name']}")
             kill_process_and_children(proc)
-            killed_any = True
-
-          except (PermissionError, psutil.AccessDenied) as e:
-            print(f"Unable to kill process {proc.pid}. The process might be running as another user or root. Try again with sudo")
-            print(str(e))
-
-          except Exception as e:
-            print(f"Error killing process {proc.pid}: {str(e)}")
+      except (psutil.AccessDenied, psutil.NoSuchProcess):
+        print(f"Access denied or process does not exist: {proc.pid}")
 
   elif platform.system() == 'Darwin' or platform.system() == 'Linux':
     command = f"netstat -tlnp | grep {port}"
