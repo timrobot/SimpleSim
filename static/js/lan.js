@@ -1,13 +1,15 @@
 import * as THREE from 'three';
 
 class WSConnection {
-  constructor(port, width, height, near, far, peerid) {
+  constructor(port, width, height, near, far, scene, offscreenCamera) {
     port = port || 9999;
-    this.peerid = peerid;
 
     // Offscreen elements (cameras)
     this.colorURL;
     this.depthURL;
+
+    this.offscreenCamera = offscreenCamera;
+    this.scene = scene;
 
     this.colorCanvas = new OffscreenCanvas(width, height);
     const colorContext = this.colorCanvas.getContext('webgl2', { antialias: true, alpha: false });
@@ -69,16 +71,7 @@ class WSConnection {
     this.postScene = new THREE.Scene();
     this.postScene.add( postQuad );
 
-
-    // data hooks for ws
-    this.observation = [];
-    this.reward = 0;
-    this.terminal = false;
-    this.requires_render = false;
-    // this.cmd = null;
-
-    this.onreset = null;
-    this.onstep = null;
+    this.bodies = {};
 
     this.ws = new WebSocket(`ws://127.0.0.1:${port}`);
     this.ws_connected = false;
@@ -88,19 +81,17 @@ class WSConnection {
     };
 
     this.ws.onmessage = (event) => {
-      const cmd = JSON.parse(event.data);
-      if (cmd.api === "reset" && this.onreset) {
-        this.onreset();
-        this._update_callback();
-      } else if (cmd.api === "act" && this.onstep) {
-        this.onstep(cmd.action);
-        this._update_callback();
-      } else if (cmd.api === "render") {
-        this.requires_render = cmd.value;
-        this.ws.send(JSON.stringify("success"));
-      } else if (cmd.api === "multiplayerConnect") {
-        // do something here
-      }
+      const state = JSON.parse(event.data);
+      state.bodies.forEach((body) => {
+        if (this.bodies.hasOwnProperty(body.name)) {
+          const b = body.name === 'camera' ? this.offscreenCamera : this.bodies[body.name];
+          b.position.set(...body.position);
+          b.quaternion.set(...body.quaternion);
+        } else {
+          console.log(`Cannot find body ${body.name}`);
+        }
+      });
+      this.render();
     };
 
     this.ws.onclose = () => {
@@ -115,55 +106,33 @@ class WSConnection {
       console.error('WebSocket error:', error);
       this.ws_connected = false;
     };
-
-    // this._update_callback();
   }
 
-  _update_callback() {
+  send_render() {
     if (this.ws_connected) {
-      if (this.requires_render) {
-        if (this.colorURL && this.depthURL) {
-          const color = this.colorURL;
-          const depth = this.depthURL;
-          this.colorURL = null;
-          this.depthURL = null;
-          const info = JSON.stringify({
-            "obs": this.observation,
-            "rew": this.reward,
-            "term": this.terminal
-          });
-          this.ws.send(info + '$' + color + ',' + depth);
-        } else {
-          setTimeout(this._update_callback.bind(this), 5);
-        }
-      } else {
+      if (this.colorURL && this.depthURL) {
+        const color = this.colorURL;
+        const depth = this.depthURL;
         this.colorURL = null;
         this.depthURL = null;
-        const info = JSON.stringify({
-          "obs": this.observation,
-          "rew": this.reward,
-          "term": this.terminal
-        });
-        this.ws.send(info + '$');
+        // send the rendered frames over
+        this.ws.send(color + ',' + depth);
       }
     }
   }
 
-  setObservationReward(obs, rew, term) {
-    this.observation = obs;
-    this.reward = rew;
-    this.terminal = term || false;
-  }
-
-  render(scene, offscreenCamera) {
-    if (!this.requires_render) return;
+  render() {
+    if (!this.offscreenCamera || !this.scene) {
+      console.error('Offscreen camera or scene not set, cannot render.');
+      return;
+    }
 
     // Render the scene to offscreen targets
-    this.colorRenderer.render(scene, offscreenCamera);
+    this.colorRenderer.render(this.scene, this.offscreenCamera);
 
     // render scene into target
     this.depthRenderer.setRenderTarget(this.target);
-    this.depthRenderer.render(scene, offscreenCamera);
+    this.depthRenderer.render(this.scene, this.offscreenCamera);
 
     // render post FX
     this.postMaterial.uniforms.tDiffuse.value = this.target.texture;
@@ -181,6 +150,9 @@ class WSConnection {
       let colorreader = new FileReader();
       colorreader.onload = () => {
         this.colorURL = colorreader.result;
+        if (this.depthURL) {
+          this.send_render(); // Send the data if both URLs are ready
+        }
       };
       colorreader.readAsDataURL(blob);
     });
@@ -188,10 +160,23 @@ class WSConnection {
       let depthreader = new FileReader();
       depthreader.onload = () => {
         this.depthURL = depthreader.result;
+        if (this.colorURL) {
+          this.send_render(); // Send the data if both URLs are ready
+        }
       };
       depthreader.readAsDataURL(blob);
     });
+  }
 
+  addBody(body) {
+    // this function acts as a proxy for a socket connection
+    this.bodies[body.name] = body;
+  }
+  removeBody(body) {
+    // this function acts as a proxy for a socket connection
+    if (this.bodies.hasOwnProperty(body.name)) {
+      delete this.bodies[body.name];
+    }
   }
 };
 

@@ -30,15 +30,12 @@ envpath = ""
 frame_lock = Lock()
 color_buf = None
 depth_buf = None
-frame2_lock = Lock()
-color2_buf = None
-cam2_enable = Value(c_bool, False)
 
 cmd_queue = Queue(maxsize=100)
 env_queue = Queue(maxsize=100)
 
 main_loop = None
-_running = Value(c_bool, True)
+_running = Value(c_bool, False)
 last_rx_time = Array(c_char, 100)
 comms_task = None
 
@@ -64,7 +61,6 @@ async def handle_websocket(websocket, path):
   h, w = frame_shape
   color_np = np.frombuffer(color_buf, np.uint8).reshape((h, w, 3))
   depth_np = np.frombuffer(depth_buf, np.uint16).reshape((h, w))
-  color2_np = np.frombuffer(color2_buf, np.uint8).reshape((h, w, 3))
   far = 50
   near = 0.1
 
@@ -73,10 +69,9 @@ async def handle_websocket(websocket, path):
       if not cmd_queue.empty(): # only act on step cmds
         cmd = cmd_queue.get()
         await websocket.send(json.dumps(cmd))
+        # we want to process the cmd through mujoco's physx engine
 
         data = await websocket.recv()
-        if cmd["api"] == "render": continue
-        res, data = data.split('$')
 
         last_rx_time.acquire()
         last_rx_time.value = datetime.isoformat(datetime.now()).encode()
@@ -92,12 +87,12 @@ async def handle_websocket(websocket, path):
           D = (D[:,:,2] / 256 + D[:,:,1]) / 256 * (far - near) + near
           D = np.where(D < 10.0, D, 0)
           depth = (D * 1000).astype(np.uint16)
-          if color.shape[-1] == 4:
+          if color.shape[-1] == 4: # sRGB
             color = color[:,:,:3]
           np.copyto(color_np, color)
           np.copyto(depth_np, depth)
 
-        env_queue.put(json.loads(res))
+        env_queue.put({})
 
     except websockets.ConnectionClosed:
       print("Connection closed, closing.")
@@ -115,18 +110,28 @@ async def request_handler(host, port):
       logging.error(e)
       sys.exit(1)
 
-def comms_worker(path, port, httpport, run, cbuf, dbuf, flock, cbuf2, cam2_en, flock2, cmdq, envq):
+def recursive_transform_float(obj):
+  if isinstance(obj, dict):
+    for k, v in obj.items():
+      obj[k] = recursive_transform_float(v)
+  elif isinstance(obj, np.ndarray):
+    obj = obj.tolist()
+    for i, v in enumerate(obj):
+      obj[i] = recursive_transform_float(v)
+  elif isinstance(obj, list):
+    for i, v in enumerate(obj):
+      obj[i] = recursive_transform_float(v)
+  elif isinstance(obj, float) or isinstance(obj, int):
+    return float(int(obj * 10000)) / 10000
+  return obj
+
+def comms_worker(path, port, httpport, run, cbuf, dbuf, flock, cmdq, envq):
   global main_loop, _running, envpath
   global color_buf, depth_buf, frame_lock
-  global color2_buf, cam2_enable, frame2_lock
   global cmd_queue, env_queue
   color_buf = cbuf
   depth_buf = dbuf
   frame_lock = flock
-
-  color2_buf = cbuf2
-  cam2_enable = cam2_en
-  frame2_lock = flock2
 
   cmd_queue = cmdq
   env_queue = envq
@@ -162,22 +167,16 @@ def kill_all_processes_by_port(port):
 
       kill_process(proc)
 
-    for proc in psutil.process_iter(['pid', 'name', 'connections']):
-      if not proc.info['connections']: continue
-      for conn in proc.info['connections']:
-        print(conn)
-        if conn.laddr.port == port:
-          try:
-            print(f"Found process with PID {proc.pid} and name {proc.info['name']}")
-            kill_process_and_children(proc)
-            killed_any = True
-
-          except (PermissionError, psutil.AccessDenied) as e:
-            print(f"Unable to kill process {proc.pid}. The process might be running as another user or root. Try again with sudo")
-            print(str(e))
-
-          except Exception as e:
-            print(f"Error killing process {proc.pid}: {str(e)}")
+    for proc in psutil.process_iter(['pid', 'name']):
+      try:
+          connections = proc.net_connections()
+          for conn in connections:
+              print(conn)
+              if conn.laddr.port == port:
+                  print(f"Found process with PID {proc.pid} and name {proc.info['name']}")
+                  kill_process_and_children(proc)
+      except (psutil.AccessDenied, psutil.NoSuchProcess):
+          print(f"Access denied or process does not exist: {proc.pid}")
 
   elif platform.system() == 'Darwin' or platform.system() == 'Linux':
     command = f"netstat -tlnp | grep {port}"
@@ -195,40 +194,45 @@ def kill_all_processes_by_port(port):
 
 def start(path, port=9999, httpport=8765):
   global comms_task, envpath
-  global color_buf, depth_buf, color2_buf
+  global color_buf, depth_buf
 
   kill_all_processes_by_port(httpport)
   kill_all_processes_by_port(port)
 
   color_buf = RawArray(c_uint8, frame_shape[0] * frame_shape[1] * 3)
   depth_buf = RawArray(c_uint8, frame_shape[0] * frame_shape[1] * 2)
-  color2_buf = RawArray(c_uint8, frame_shape[0] * frame_shape[1] * 3)
 
   envpath = path
 
+  _running.value = True
   comms_task = Process(target=comms_worker, args=(
     path, port, httpport, _running,
     color_buf, depth_buf, frame_lock,
-    color2_buf, cam2_enable, frame2_lock,
     cmd_queue, env_queue))
   comms_task.start()
 
 def stop():
   global comms_task
   _running.value = False
-  time.sleep(0.3)
-  comms_task.kill()
+  if comms_task is not None:
+    comms_task.kill()
 
-def read(timeout=None):
-  """Return observation, reward, terminal values as well as video frames
+def render(body_info, timeout=None):
+  """Return video frames
 
   Returns:
-      Tuple[List[float], float, bool, Dict[np.ndarray]]:
-        observation, reward, terminal, { color, depth, color2 }
+      Tuple[np.ndarray]: color, depth
   """
+  if not _running.value: start()
+
+  cmd_queue.put({
+    "api": "render",
+    "bodies": recursive_transform_float(body_info)
+  })
+
   start_time = time.time()
   while env_queue.empty() and (timeout is None or (time.time() - start_time) < timeout):
-    time.sleep(0.002)
+    time.sleep(0.001)
   assert (not env_queue.empty())
   res = env_queue.get()
 
@@ -237,49 +241,21 @@ def read(timeout=None):
   depth_np = np.frombuffer(depth_buf, np.uint16).reshape((h, w))
   color = np.copy(color_np)
   depth = np.copy(depth_np)
-  if cam2_enable.value:
-    color2_np = np.frombuffer(color2_buf, np.uint8).reshape((h, w, 3))
-    color2 = np.copy(color2_np)
-  else:
-    color2 = None
 
-  observation = res["obs"]
-  reward = res["rew"]
-  terminal = res["term"]
-
-  return observation, reward, terminal, {
-    "color": color,
-    "depth": depth,
-    "color2": color2
-  }
-
-def step(action):
-  """Send motor values to remote location
-  """
-  cmd_queue.put({
-    "api": "act",
-    "action": [float(x) for x in action]
-  })
-  return read()
-
-def reset():
-  cmd_queue.put({
-    "api": "reset"
-  })
-  return read()
-
-def render(enable=True):
-  cmd_queue.put({
-    "api": "render",
-    "value": enable
-  })
+  return color, depth
 
 def running():
   return _running.value
 
 if __name__ == "__main__":
-  start()
-  reset()
+  import pyrr
+  if not running(): start('./env/pendulum.html')
   while running():
-    obs, rew, term, _ = step([0] * 10)
-    time.sleep(0.1)
+    color, depth = render([{
+      'name': 'pendulum_joint',
+      'position': [0, 0.5, 0], # [x, z, -y]
+      'quaternion': pyrr.Quaternion.from_z_rotation(np.radians(time.time() * 180)) # we are still using three js axes for this
+    }])
+    cv2.imshow('color', color)
+    cv2.waitKey(1)
+    # time.sleep(0.1)
