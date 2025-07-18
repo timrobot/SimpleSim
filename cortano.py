@@ -56,10 +56,12 @@ class VexV5(MultiplayerEnv):
     self._sensor_read_active = False
     self._running_in_play = False
 
+    self.reward = [0, 0]
+
   def read(self):
     motors = [x / 100. for x in self.motor]
     action = [motors[0], 0, motors[2], 0, 0, 0, 0, motors[7], 0, -motors[9]]
-    self.obs, rew, term, info = self.step(action)
+    self.obs, self.reward, term, info = self.step(action)
     sensors = [
       0, action[0], 0,
       0, action[9], 0,
@@ -87,5 +89,5 @@ class VexV5(MultiplayerEnv):
     elif not self._camera_read_active and not self._sensor_read_active:
       motors = [x / 100. for x in self.motor]
       action = [motors[0], 0, motors[2], 0, 0, 0, 0, motors[7], 0, -motors[9]]
-      self.obs, _, __, ___ = self.step(action)
+      self.obs, self.reward, __, ___ = self.step(action)
     return r

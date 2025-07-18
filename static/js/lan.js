@@ -134,7 +134,7 @@ class WSConnection {
           });
           this.ws.send(info + '$' + color + ',' + depth);
         } else {
-          setTimeout(this._update_callback.bind(this), 5);
+          setTimeout(this._update_callback.bind(this), 2);
         }
       } else {
         this.colorURL = null;

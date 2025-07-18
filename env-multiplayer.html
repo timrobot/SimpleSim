@@ -50,6 +50,22 @@
         display: none;
       }
 
+      #scoreboard {
+        position: absolute;
+        top: 0px;
+        right: 0px;
+        font-size: 32px;
+        font-family: Arial, Helvetica, sans-serif;
+        width: 100px;
+        height: 40px;
+        line-height: 40px;
+        padding: 4px 12px 4px 12px;
+        background-color: rgb(45, 60, 80);
+        color: gray;
+        display: none;
+        text-align: center;
+      }
+
       #multiplayerContainer {
         position: absolute;
         top: 0px;
@@ -169,6 +185,9 @@
     </div>
     <div id="peerIdDisplay"><span style="user-select: none;">Session: </span><span id="valueContainer"></span>
       <span id="peerIdCopy" title="Copy">📋</span>
+    </div>
+    <div id="scoreboard">
+      <span id="our_score" style="color:lightgreen">0</span> | <span id="their_score" style="color:red">0</span>
     </div>
     <script type="module">
       import * as THREE from 'three';
@@ -591,36 +610,48 @@
         clawPosition.add(clawBaseA.position);
 
         // choose the closest can to the claw
-        let can = cans[0];
-        let distance = 100000.;
+        // let can = cans[0];
+        // let distance = 100000.;
+        // for (let i = 0; i < cans.length; i++) {
+        //   const canDistance = clawPosition.distanceTo(cans[i].position);
+        //   if (canDistance < distance) {
+        //     distance = canDistance;
+        //     can = cans[i];
+        //   }
+        // }
+
+        // const pq_theta = Math.atan2(clawBaseA.position.x - can.position.x, clawBaseA.position.z - can.position.z);
+        // let dtheta = pq_theta - heading.y;
+        // while (dtheta > Math.PI) dtheta -= 2 * Math.PI;
+        // while (dtheta < -Math.PI) dtheta += 2 * Math.PI;
+        // pitch.setFromQuaternion(arm1A.quaternion, 'YZX');
+        // const reward = 1 - distance - Math.abs(dtheta) / Math.PI;
+
+        // reward will be based on ours, theirs
+        let ours = 0;
+        let theirs = 0;
         for (let i = 0; i < cans.length; i++) {
-          const canDistance = clawPosition.distanceTo(cans[i].position);
-          if (canDistance < distance) {
-            distance = canDistance;
-            can = cans[i];
+          const z = sessionId === null ? -cans[i].position.z : cans[i].position.z;
+          if (z > in2m(30)) {
+            ours++;
+          } else if (z < in2m(-30)) {
+            theirs++;
           }
         }
 
-        const pq_theta = Math.atan2(clawBaseA.position.x - can.position.x, clawBaseA.position.z - can.position.z);
-        let dtheta = pq_theta - heading.y;
-        while (dtheta > Math.PI) dtheta -= 2 * Math.PI;
-        while (dtheta < -Math.PI) dtheta += 2 * Math.PI;
-        pitch.setFromQuaternion(arm1A.quaternion, 'YZX');
-        const reward = 1 - distance - Math.abs(dtheta) / Math.PI;
-
         connection.setObservationReward([
-          chassisA.position.x,
-          -chassisA.position.z,
-          heading.y,
-          pitch.x,
-          physx.get(arm1A).getAngularVelocity().x(),
-          can.position.x,
-          -can.position.z,
-          distance,
-          dtheta,
-          objectGrabbed ? 1 : 0,
-          clawAngle * Math.PI / 180
-        ], reward);
+          chassisA.position.x,  // global
+          -chassisA.position.z, // global
+          heading.y,            // global
+          pitch.x,              // angle
+          physx.get(arm1A).getAngularVelocity().x(),  // angular velocity
+          0,
+          0,
+          0,
+          0,
+          objectGrabbed ? 1 : 0,  // end effector sensor
+          clawAngle * Math.PI / 180 // end effector angle
+        ], [ours, theirs]);
         connection.render(scene, robotCamera);
       }
 
@@ -739,6 +770,18 @@
       };
 
       function animate() {
+        let ours = 0;
+        let theirs = 0;
+        for (let i = 0; i < cans.length; i++) {
+          const z = sessionId === null ? -cans[i].position.z : cans[i].position.z;
+          if (z > in2m(30)) {
+            ours++;
+          } else if (z < in2m(-30)) {
+            theirs++;
+          }
+        }
+        document.getElementById('our_score').textContent = (ours).toString();
+        document.getElementById('their_score').textContent = (theirs).toString();
         renderer.render(scene, camera);
       }
 
@@ -791,7 +834,9 @@
               navigator.clipboard.writeText(peerid);
             });
             document.getElementById("peerIdDisplay").style.display = "block";
-            connection = new WSConnection(sessionId === null ? 9999 : 9998, 640, 360, 0.1, 60);
+            document.getElementById("scoreboard").style.display = "block";
+            // connection = new WSConnection(sessionId === null ? 9999 : 9998, 640, 360, 0.1, 60);
+            connection = new WSConnection(9999, 640, 360, 0.1, 60);
             connection.onreset = onreset;
             connection.onstep = onstep;
           });
