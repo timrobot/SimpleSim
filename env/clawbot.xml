@@ -1,0 +1,151 @@
+<mujoco model="robot">
+    <option timestep="0.01" gravity="0 0 -9.81"/>
+    <!-- <compiler lengthrange="0.0254 2.54" angle="degree"/> -->
+
+    <worldbody>
+        <!-- Light Source -->
+        <light diffuse="0.5 0.5 0.5" pos="0 0 3" dir="0 0 -1"/>
+
+        <!-- Ground Plane -->
+        <geom name="ground" type="plane" size="10 10 0.1" contype="1" conaffinity="7" />
+
+        <!-- Main box (chassis) -->
+        <!-- pos=0 0 5.125 -->
+        <body name="chassis" pos="0 0 0.130175">
+            <joint type="free"/> <!-- allow free motion around the plane -->
+
+            <!-- size=5 5 5.125 mass=4.5 -->
+            <geom type="box" size="0.127 0.127 0.127"
+                rgba="0.3 0.3 0.3 0.4" mass="7" condim="3" contype="2" conaffinity="9"/>
+
+            <!-- Front Left Wheel -->
+            <body name="wheel_fl" pos="-0.1397 0.10795 -0.079375">
+                <joint name="joint_fl" type="hinge" axis="-1 0 0" damping="1"/>
+                <!-- size=2 .44 fromto=5.06 4.25 -3.125 5.94 4.25 -3.125 -->
+                <geom type="cylinder" size="0.0508 0.011176"
+                    fromto="0.011176 0 0 -0.011176 0 0"
+                    rgba="0 1 0 1" mass="1.125" condim="3" contype="1" conaffinity="1"/>
+            </body>
+
+            <!-- Front Right Wheel -->
+            <body name="wheel_fr" pos="0.1397 0.10795 -0.079375">
+                <joint name="joint_fr" type="hinge" axis="-1 0 0" damping="1"/>
+                <geom type="cylinder" size="0.0508 0.011176"
+                    fromto="-0.011176 0 0 0.011176 0 0"
+                    rgba="0 1 0 1" mass="1.125" condim="3" contype="1" conaffinity="1"/>
+            </body>
+
+            <!-- Rear Left Wheel -->
+            <!-- x position has been adjusted to compensate for the ball joint collision -->
+            <body name="wheel_rl" pos="-0.11 -0.10795 -0.079375">
+                <joint name="joint_rl" type="ball"/>
+                <geom type="sphere" size="0.0508"
+                    rgba="0.5 0.5 0.5 1" mass="1.125" friction="0 0 0" condim="3" contype="1" conaffinity="1"/>
+            </body>
+
+            <!-- Rear Right Wheel -->
+            <body name="wheel_rr" pos="0.11 -0.10795 -0.079375">
+                <joint name="joint_rr" type="ball"/>
+                <geom type="sphere" size="0.0508"
+                    rgba="0.5 0.5 0.5 1" mass="1.125" friction="0 0 0" condim="3" contype="1" conaffinity="1"/>
+            </body>
+
+            <!-- Top Arm -->
+            <body name="arm1" pos="0 0.0254 0.117475">
+                <joint name="joint_arm1" type="hinge" axis="1 0 0" 
+                    pos="0 -0.1397 0" damping="0.5"/>
+                <geom type="cylinder" fromto="0 -0.15875 0 0 0.15875 0"
+                    size="0.0127 0.15875" rgba="0 1 0 1" mass="0.1" condim="3" contype="2" conaffinity="2"/>
+
+                <!-- Claw -->
+                <body name="claw_base" pos="0 0.1863725 -0.0254">
+                    <joint name="joint_cb_arm1" type="hinge" axis="1 0 0" pos="0 -0.0339725 0.0254"/>
+                    <site name="mate_cb_arm2" pos="0 -0.0339725 -0.0254"/>
+                    <site name="virtual_claw_target" pos="0 0.103 0"/>
+                    <geom type="box" size="0.0508 0.0422275 0.033655" rgba="0.5 0.5 0.5 1" mass="0.5"
+                        condim="3" contype="4" conaffinity="5"/>
+
+                    <!-- Left effector -->
+                    <body name="left_claw" pos="-0.035 0.0356235 0">
+                        <joint name="joint_left_claw" type="hinge" axis="0 0 -1" range="-90 0" frictionloss="0.1"/>
+                        <geom type="box" size="0.006 0.01 0.014" pos="0.024638 0.0373 0" euler="0 0 45" rgba="0 1 0 1" mass="0.02" condim="3" contype="2" conaffinity="1"/>
+                        <geom type="box" size="0.006 0.023 0.014" pos="0.015638 0.0673 0" rgba="0 1 0 1" mass="0.04" condim="3" contype="2" conaffinity="1"/>
+                        <geom type="box" size="0.006 0.01 0.014" pos="0.024638 0.0973 0" euler="0 0 -45" rgba="0 1 0 1" mass="0.02" condim="3" contype="2" conaffinity="1"/>
+                        <site name="mate_touch_lc" pos="0.021638 0.0673 0" size="0.002 0.018 0.01" type="box" rgba="0 1 1 1"/>
+                    </body>
+
+                    <!-- Right effector -->
+                    <body name="right_claw" pos="0.035 0.0356234 0">
+                        <joint name="joint_right_claw" type="hinge" axis="0 0 1" frictionloss="0.1"/>
+                        <geom type="box" size="0.006 0.01 0.014" pos="-0.024638 0.0373 0" euler="0 0 -45" rgba="0 1 0 1" mass="0.02" condim="3" contype="2" conaffinity="1"/>
+                        <geom type="box" size="0.006 0.023 0.014" pos="-0.015638 0.0673 0" rgba="0 1 0 1" mass="0.04" condim="3" contype="2" conaffinity="1"/>
+                        <geom type="box" size="0.006 0.01 0.014" pos="-0.024638 0.0973 0" euler="0 0 45" rgba="0 1 0 1" mass="0.02" condim="3" contype="2" conaffinity="1"/>
+                        <site name="mate_touch_rc" pos="-0.021638 0.0673 0" size="0.002 0.018 0.01" type="box" rgba="0 1 1 1"/>
+                    </body>
+                </body>
+            </body>
+
+            <!-- Bottom Arm -->
+            <body name="arm2" pos="0 0.0254 0.066675">
+                <joint name="joint_arm2" type="hinge" axis="1 0 0" 
+                    pos="0 -0.1397 0"/>
+                <site name="mate_arm2_cb" pos="0 0.1524 0"/>
+                <geom type="cylinder" fromto="0 -0.15875 0 0 0.15875 0"
+                    size="0.0127 0.15875" rgba="0.5 0.5 0.5 1" mass="0.1" condim="3" contype="2" conaffinity="2"/>
+            </body>
+        </body>
+
+        <body name="can1" pos="0 0.5 0.065">
+            <joint type="free"/>
+            <geom type="cylinder"
+                size="0.033 0.06135"
+                rgba="1 0 0 1"
+                mass="0.4"
+                condim="3" contype="1" conaffinity="1"/>
+        </body>
+
+    </worldbody>
+
+    <equality>
+        <connect name="joint_arm2_cb"
+            site1="mate_arm2_cb"
+            site2="mate_cb_arm2"/>
+    </equality>
+
+    <equality>
+        <joint name="claw_sync"
+            joint1="joint_left_claw"
+            joint2="joint_right_claw"
+            polycoef="0 1"/>
+    </equality>
+
+    <!-- Actuators to control wheel rotation -->
+    <actuator>
+        <motor name="motor_fl" joint="joint_fl"
+            gear="2.1"
+            ctrlrange="-1 1" ctrllimited="true"/>
+        <motor name="motor_fr" joint="joint_fr"
+            gear="2.1"
+            ctrlrange="-1 1" ctrllimited="true"/>
+        <motor name="motor_arm1" joint="joint_arm1"
+            gear="14.7"
+            ctrlrange="-1 1" ctrllimited="true"
+            forcelimited="true" forcerange="-14.7 14.7"/>
+        <position name="motor_claw" joint="joint_left_claw"
+            ctrlrange="-1 1" ctrllimited="true"/>
+    </actuator>
+
+    <!-- Sensors -->
+    <sensor>
+        <jointpos joint="joint_fl" noise="0.05" />
+        <jointvel joint="joint_fl" noise="0.1" />
+        <jointpos joint="joint_fr" noise="0.05" />
+        <jointvel joint="joint_fr" noise="0.1" />
+        <jointpos joint="joint_arm1" noise="0.05" />
+        <jointvel joint="joint_arm1" noise="0.1" />
+        <jointpos joint="joint_left_claw" noise="0.05" />
+        <jointvel joint="joint_left_claw" noise="0.1" />
+        <touch name="touch_lc" site="mate_touch_lc" noise="0"/>
+        <touch name="touch_rc" site="mate_touch_rc" noise="0"/>
+    </sensor>
+</mujoco>
