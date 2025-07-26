@@ -26,6 +26,26 @@ cd SimpleSim
 python3 -m pip install -r requirements.txt
 ```
 
+```
+# You may have the following encounter the following error when running on a Mac...
+python3 main.py
+Traceback (most recent call last):
+  File "/Users/chunw/Code/robotics/SimpleSim/main.py", line 1, in <module>
+    from cortano import RealsenseCamera, VexV5
+  File "/Users/chunw/Code/robotics/SimpleSim/cortano.py", line 4, in <module>
+    from environments import MultiplayerEnv
+  File "/Users/chunw/Code/robotics/SimpleSim/environments.py", line 17, in <module>
+    import lan
+  File "/Users/chunw/Code/robotics/SimpleSim/lan.py", line 19, in <module>
+    import psutil
+ModuleNotFoundError: No module named 'psutil'
+```
+
+You should be able to resolve this issue by install psutil on your Mac.
+```
+pip3 install psutil
+```
+
 Run an example program to control the robot. You can use W(↑) A(←) S(↓) D(→) to control the robot navigation and P(arm ↑) L(arm ↓) and O(claw →←) K(claw ←→) to control the arm and claws.
 
 ```bash
